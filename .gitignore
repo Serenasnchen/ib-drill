@@ -1,0 +1,12 @@
+# Reference materials
+*.pdf
+*.docx
+
+# Generated / scratch files
+questions_*.json
+questions_inline.txt
+_gen.py
+_gen2.py
+build_html.py
+generate_doc.py
+ref-home.png

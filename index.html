@@ -1,0 +1,159 @@
+<!DOCTYPE html>
+<html lang="zh">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>IB Drill &#10024;</title>
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+
+<!-- Welcome Screen -->
+<div class="welcome-screen" id="welcomeScreen">
+  <div class="wlc-title">IB Drill</div>
+  <div class="wlc-sub">You will always be a free summer &#10024;</div>
+  <button class="wlc-btn" onclick="startApp()">Start &#8594;</button>
+</div>
+
+<!-- App (hidden until Start) -->
+<div class="app-wrap" id="appWrap">
+
+<!-- Header -->
+<div class="header">
+  <div class="header-inner">
+    <div class="header-row1">
+      <div class="brand">
+        <div class="brand-mark">&#128218;</div>
+        <div class="brand-text">
+          <div class="brand-title">IB Drill</div>
+          <div class="brand-sub">You will always be a free summer &#10024;</div>
+        </div>
+      </div>
+      <div class="header-stats">
+        <div class="hstat">
+          <span class="hstat-num" id="sIdx">-</span>
+          <span style="color:var(--text3)">/</span>
+          <span class="hstat-num" id="sTotal">-</span>
+        </div>
+        <span class="hstat-divider">&#183;</span>
+        <div class="hstat">&#9733; <span class="hstat-num" id="sStar">0</span></div>
+        <span class="hstat-divider">&#183;</span>
+        <div class="hstat">&#9711; <span class="hstat-num" id="sRev">0</span></div>
+        <span class="mode-pill" id="statMode">SHFL</span>
+      </div>
+    </div>
+    <div class="progress-bar-wrap">
+      <div class="progress-bar-fill" id="progressFill" style="width:0%"></div>
+    </div>
+  </div>
+</div>
+
+<!-- Toolbar -->
+<div class="toolbar">
+  <div class="toolbar-inner">
+    <div class="search-row">
+      <span class="search-icon-el">&#128269;</span>
+      <input type="text" id="searchInput" placeholder="&#25628;&#32034;&#39064;&#30446;&#12289;&#31572;&#26696;..." oninput="applyFilter()">
+      <button class="search-clear" id="searchClear" onclick="document.getElementById('searchInput').value='';applyFilter();">&#215;</button>
+    </div>
+    <div class="filter-row">
+      <select id="fCat" class="filter-select" onchange="applyFilter()">
+        <option value="all">&#128196; All Topics</option>
+        <option value="Accounting">Accounting</option>
+        <option value="Valuation">Valuation</option>
+        <option value="M&A">M&amp;A</option>
+        <option value="LBO">LBO</option>
+      </select>
+      <select id="fDiff" class="filter-select" onchange="applyFilter()">
+        <option value="all">&#127775; All Levels</option>
+        <option value="Easy">Easy</option>
+        <option value="Medium">Medium</option>
+        <option value="Hard">Hard</option>
+      </select>
+      <select id="fSpecial" class="filter-select" onchange="applyFilter()">
+        <option value="all">&#128218; All</option>
+        <option value="starred">&#9733; Starred</option>
+        <option value="review">&#128204; Review</option>
+      </select>
+    </div>
+    <div class="mode-row">
+      <button class="mode-btn mode-active" id="modeShuffleBtn" onclick="setMode('shuffle')">&#8652; Shuffle</button>
+      <button class="mode-btn" id="modeSeqBtn" onclick="setMode('sequential')">&#8594; Sequential</button>
+    </div>
+  </div>
+</div>
+
+<!-- Main -->
+<div class="main">
+
+  <!-- Question card -->
+  <div class="q-card" id="qPanel">
+    <div class="q-card-header">
+      <div class="q-badges">
+        <span class="badge badge-cat" id="tagCat"></span>
+        <span class="badge" id="tagDiff"></span>
+        <span class="q-id-text" id="qId"></span>
+      </div>
+      <button class="star-btn" id="starBtn" onclick="toggleStar()">&#9734;</button>
+    </div>
+    <div class="q-body">
+      <div class="q-text" id="qText"></div>
+    </div>
+  </div>
+
+  <!-- Action bar -->
+  <div class="action-bar" id="actionBar">
+    <button class="btn btn-primary" id="showBtn" onclick="showAnswer()">&#10024; Reveal Answer</button>
+    <button class="btn btn-outline" id="btnReview" onclick="toggleReview()">&#128204; Review Later</button>
+    <button class="btn btn-next" onclick="nextQuestion()">Next &#8594;</button>
+  </div>
+
+  <!-- Answer section -->
+  <div class="answer-section" id="answerSection">
+
+    <!-- English Answer -->
+    <div class="answer-card card-en">
+      <div class="answer-card-header">
+        <span class="answer-label label-en">&#127468;&#127463; English Answer</span>
+      </div>
+      <div class="answer-body" id="ansEn"></div>
+    </div>
+
+    <!-- Chinese Answer -->
+    <div class="answer-card card-zh">
+      <div class="answer-card-header">
+        <span class="answer-label label-zh">&#127464;&#127475; &#20013;&#25991;&#31572;&#26696;</span>
+      </div>
+      <div class="answer-body" id="ansZh"></div>
+    </div>
+
+    <!-- Explanation accordion -->
+    <div class="answer-card card-exp">
+      <div class="exp-toggle-row" onclick="toggleExp()">
+        <div class="exp-toggle-left">
+          <span class="exp-chevron" id="expChevron">&#9658;</span>
+          <span class="answer-label label-exp">&#128161; &#35299;&#26512;</span>
+        </div>
+        <span class="exp-hint">&#28857;&#20987;&#23637;&#24320;</span>
+      </div>
+      <div class="exp-body" id="expBody"></div>
+    </div>
+
+  </div>
+
+  <!-- Empty state -->
+  <div class="empty-state" id="emptyState">
+    <div class="empty-icon">&#128270;</div>
+    <p>&#27809;&#26377;&#21305;&#37197;&#30340;&#39064;&#30446;&#65292;&#35835;&#35797;&#25442;&#20010;&#31807;&#36873;&#20915;~</p>
+  </div>
+
+  <!-- Footer hint -->
+  <div class="footer-hint" id="footerHint"></div>
+
+</div>
+
+</div><!-- /app-wrap -->
+
+<script src="script.js"></script>
+</body>
+</html>

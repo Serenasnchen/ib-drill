@@ -88,8 +88,9 @@ function render() {
   rb.textContent = isRev ? '\u2714 In Review' : '\ud83d\udccc Review Later';
   rb.className   = 'btn btn-outline' + (isRev ? ' active-review' : '');
 
-  // reset answer state + AI panel
+  // reset answer state + AI panel + notes
   closeAiPanel();
+  closeNotesPanel();
   document.getElementById('answerSection').classList.remove('visible');
   var showBtn = document.getElementById('showBtn');
   showBtn.textContent = '\u2728 Reveal Answer';
@@ -160,6 +161,7 @@ function showAnswer() {
   btn.textContent = '\u2713 Answer Revealed';
   btn.disabled = true;
   btn.className = 'btn btn-primary answered';
+  loadNote();
 }
 
 function nextQuestion() {
@@ -225,6 +227,44 @@ function startApp() {
   ws.classList.add('hidden');
   aw.classList.add('visible');
   setTimeout(function() { ws.style.display = 'none'; }, 480);
+}
+
+// ── My Notes ──────────────────────────────────────────────────────────────
+
+function toggleNotes() {
+  var body = document.getElementById('notesBody');
+  var chevron = document.getElementById('notesChevron');
+  var isOpen = body.classList.toggle('open');
+  chevron.classList.toggle('open', isOpen);
+  if (isOpen) {
+    setTimeout(function() { document.getElementById('notesInput').focus(); }, 60);
+  }
+}
+
+function closeNotesPanel() {
+  var body = document.getElementById('notesBody');
+  var chevron = document.getElementById('notesChevron');
+  if (body) body.classList.remove('open');
+  if (chevron) chevron.classList.remove('open');
+}
+
+function loadNote() {
+  if (!current) return;
+  var key = 'ib_note_' + current.id;
+  var saved = '';
+  try { saved = localStorage.getItem(key) || ''; } catch(e) {}
+  document.getElementById('notesInput').value = saved;
+  document.getElementById('notesHint').textContent =
+    saved ? '\u5df2\u6709\u7b14\u8bb0 \u00b7 \u70b9\u51fb\u67e5\u770b' : '\u70b9\u51fb\u8bb0\u5f55\u7b14\u8bb0';
+}
+
+function saveNote() {
+  if (!current) return;
+  var key = 'ib_note_' + current.id;
+  var val = document.getElementById('notesInput').value;
+  try { localStorage.setItem(key, val); } catch(e) {}
+  document.getElementById('notesHint').textContent =
+    val ? '\u5df2\u6709\u7b14\u8bb0 \u00b7 \u70b9\u51fb\u67e5\u770b' : '\u70b9\u51fb\u8bb0\u5f55\u7b14\u8bb0';
 }
 
 // ── Ask AI ────────────────────────────────────────────────────────────────

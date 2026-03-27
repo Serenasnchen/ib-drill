@@ -553,7 +553,7 @@ body {
 .ai-trigger-row {
   display: flex;
   justify-content: flex-start;
-  padding: 0 0 8px;
+  padding: 4px 0 8px;
 }
 .btn-ask-ai {
   display: inline-flex;
@@ -719,6 +719,57 @@ body {
   color: var(--text3);
   font-style: italic;
 }
+
+/* ── My Notes ────────────────────────────────── */
+.answer-card.card-notes { border-left: 3px solid var(--amber); }
+
+.notes-toggle-row {
+  padding: 10px 16px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  cursor: pointer;
+  user-select: none;
+  background: var(--amber-lt);
+  border-bottom: 1.5px solid #F0D898;
+  transition: background 0.15s;
+}
+.notes-toggle-row:hover { background: #FFF0CC; }
+.notes-toggle-left { display: flex; align-items: center; gap: 6px; }
+.notes-chevron {
+  font-size: 10px;
+  color: var(--amber);
+  transition: transform 0.22s ease;
+  display: inline-block;
+}
+.notes-chevron.open { transform: rotate(90deg); }
+.label-notes { color: #9A6A00; }
+.notes-hint { font-size: 11px; color: #9A6A00; opacity: 0.65; }
+
+.notes-body {
+  display: none;
+  padding: 12px 16px 14px;
+  background: #FFFDF5;
+}
+.notes-body.open { display: block; }
+
+.notes-textarea {
+  width: 100%;
+  min-height: 100px;
+  padding: 10px 12px;
+  border: 1.5px solid #F0D898;
+  border-radius: var(--r-sm);
+  background: var(--surface);
+  font-size: 13px;
+  font-family: inherit;
+  color: var(--text);
+  line-height: 1.7;
+  resize: vertical;
+  outline: none;
+  transition: border-color 0.15s;
+}
+.notes-textarea:focus { border-color: var(--amber); }
+.notes-textarea::placeholder { color: var(--text3); }
 
 /* ── Scrollbar ────────────────────────────────── */
 ::-webkit-scrollbar { width: 4px; }

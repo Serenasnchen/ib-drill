@@ -2,7 +2,7 @@
 
 A focused, AI-native study tool for Investment Banking technical interview prep.
 
-**Live Demo:** [https://your-deployment-url.vercel.app](https://your-deployment-url.vercel.app)
+**Live Demo:** [https://ib-drill.vercel.app](https://ib-drill.vercel.app)
 
 ---
 

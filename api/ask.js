@@ -8,6 +8,16 @@ module.exports = async function handler(req, res) {
     return res.status(500).json({ error: 'API key 未配置，请联系管理员。' });
   }
 
+  // Log key presence for debugging (never log the full key)
+  console.log('[ask] key set:', !!apiKey, '| prefix:', apiKey.slice(0, 4) + '...');
+
+  // Defensive body parsing — Vercel usually auto-parses, but handle string bodies too
+  let body = req.body;
+  if (typeof body === 'string') {
+    try { body = JSON.parse(body); } catch (e) { body = {}; }
+  }
+  body = body || {};
+
   const {
     category,
     question,
@@ -16,9 +26,10 @@ module.exports = async function handler(req, res) {
     explanation_zh,
     userQuestion,
     revealed
-  } = req.body || {};
+  } = body;
 
   if (!userQuestion || !question) {
+    console.error('[ask] missing fields — userQuestion:', userQuestion, '| question:', question);
     return res.status(400).json({ error: '请求参数不完整。' });
   }
 
@@ -62,18 +73,20 @@ ${contextBlock}
     const data = await geminiRes.json();
 
     if (!geminiRes.ok) {
-      console.error('Gemini API error:', data);
-      return res.status(502).json({ error: 'AI 服务暂时不可用，请稍后重试。' });
+      const geminiErrMsg = data?.error?.message || JSON.stringify(data);
+      console.error('[ask] Gemini error status:', geminiRes.status, '| message:', geminiErrMsg);
+      return res.status(502).json({ error: `AI 错误 (${geminiRes.status}): ${geminiErrMsg}` });
     }
 
     const text = data?.candidates?.[0]?.content?.parts?.[0]?.text;
     if (!text) {
+      console.error('[ask] Gemini empty response:', JSON.stringify(data));
       return res.status(502).json({ error: 'AI 未返回有效回复，请重试。' });
     }
 
     return res.status(200).json({ answer: text });
   } catch (err) {
-    console.error('Ask AI error:', err);
-    return res.status(500).json({ error: '网络错误，请稍后重试。' });
+    console.error('[ask] fetch error:', err.message);
+    return res.status(500).json({ error: `请求失败: ${err.message}` });
   }
 };

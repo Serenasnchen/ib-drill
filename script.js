@@ -92,6 +92,7 @@ function render() {
   closeAiPanel();
   closeNotesPanel();
   document.getElementById('answerSection').classList.remove('visible');
+  loadNote();
   var showBtn = document.getElementById('showBtn');
   showBtn.textContent = '\u2728 Reveal Answer';
   showBtn.disabled = false;
@@ -161,7 +162,6 @@ function showAnswer() {
   btn.textContent = '\u2713 Answer Revealed';
   btn.disabled = true;
   btn.className = 'btn btn-primary answered';
-  loadNote();
 }
 
 function nextQuestion() {

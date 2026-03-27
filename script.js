@@ -88,7 +88,8 @@ function render() {
   rb.textContent = isRev ? '\u2714 In Review' : '\ud83d\udccc Review Later';
   rb.className   = 'btn btn-outline' + (isRev ? ' active-review' : '');
 
-  // reset answer state
+  // reset answer state + AI panel
+  closeAiPanel();
   document.getElementById('answerSection').classList.remove('visible');
   var showBtn = document.getElementById('showBtn');
   showBtn.textContent = '\u2728 Reveal Answer';
@@ -225,6 +226,113 @@ function startApp() {
   aw.classList.add('visible');
   setTimeout(function() { ws.style.display = 'none'; }, 480);
 }
+
+// ── Ask AI ────────────────────────────────────────────────────────────────
+
+var AI_CHIPS = {
+  'Accounting': ['为什么这样分类？', '现金流影响是？', '面试怎么表达更好？'],
+  'Valuation':  ['为什么用这个方法？', 'EV vs Equity Value?', '常见 multiples？'],
+  'M&A':        ['战略逻辑是什么？', '常见 synergies 类型？', '尽调重点在哪里？'],
+  'LBO':        ['为什么 LBO 有吸引力？', '杠杆结构怎么设计？', 'IRR 驱动因素？']
+};
+
+function openAiPanel() {
+  if (!current) return;
+  var panel = document.getElementById('aiPanel');
+  var trigger = document.getElementById('aiTriggerRow');
+  panel.classList.add('open');
+  trigger.style.display = 'none';
+
+  var chips = AI_CHIPS[current.category] || ['为什么这样？', '能举个例子吗？', '面试怎么答？'];
+  document.getElementById('aiChips').innerHTML = chips.map(function(c) {
+    return '<button class="ai-chip" onclick="submitAiQuestion(\'' +
+           c.replace(/\\/g,'\\\\').replace(/'/g,"\\'") + '\')">' + esc(c) + '</button>';
+  }).join('');
+
+  document.getElementById('aiResponse').innerHTML = '';
+  document.getElementById('aiInput').value = '';
+  setTimeout(function() { document.getElementById('aiInput').focus(); }, 150);
+}
+
+function closeAiPanel() {
+  var panel = document.getElementById('aiPanel');
+  var trigger = document.getElementById('aiTriggerRow');
+  if (panel) panel.classList.remove('open');
+  if (trigger) trigger.style.display = '';
+}
+
+function submitAiQuestion(q) {
+  var input = document.getElementById('aiInput');
+  var question = (q || input.value).trim();
+  if (!question) return;
+  input.value = '';
+
+  var resp = document.getElementById('aiResponse');
+  resp.innerHTML = '<div class="ai-thinking">' +
+    '<span class="ai-dot"></span><span class="ai-dot"></span><span class="ai-dot"></span>' +
+    '</div>';
+
+  var answer = buildAiResponse(question);
+  setTimeout(function() {
+    resp.innerHTML = '';
+    var msgEl = document.createElement('div');
+    msgEl.className = 'ai-msg';
+    var metaEl = document.createElement('div');
+    metaEl.className = 'ai-msg-meta';
+    metaEl.textContent = '— IB Drill AI Demo · 真实 AI 功能即将上线';
+    resp.appendChild(msgEl);
+    resp.appendChild(metaEl);
+    typewriter(answer, msgEl, resp);
+  }, 900);
+}
+
+function buildAiResponse(question) {
+  if (!current) return '暂无题目数据。';
+
+  var exp = current.explanation_zh || '';
+  var re = /【([^】]+)】([^【]*)/g;
+  var m, segs = {};
+  while ((m = re.exec(exp)) !== null) { segs[m[1]] = m[2].trim(); }
+
+  var what  = segs['这题在考什么']  || '';
+  var logic = segs['正确回答逻辑'] || '';
+  var traps = segs['容易错在哪里'] || '';
+
+  var q = question.toLowerCase();
+  var header, body;
+
+  if (q.indexOf('错') !== -1 || q.indexOf('陷阱') !== -1 || q.indexOf('mistake') !== -1 || q.indexOf('wrong') !== -1) {
+    header = '⚠️  容易错在哪里';
+    body   = traps || '这道题没有特别记录的易错点。';
+  } else if (q.indexOf('为什么') !== -1 || q.indexOf('why') !== -1 || q.indexOf('逻辑') !== -1 || q.indexOf('如何') !== -1 || q.indexOf('怎么') !== -1) {
+    header = '📝  回答逻辑';
+    body   = logic || '暂无具体逻辑分析。';
+  } else if (q.indexOf('考') !== -1 || q.indexOf('考察') !== -1 || q.indexOf('test') !== -1) {
+    header = '📋  这题在考什么';
+    body   = what || '暂无具体分析。';
+  } else {
+    header = '✨  AI 解析';
+    var parts = [];
+    if (what)  parts.push('📋 考察点\n' + what);
+    if (logic) parts.push('📝 回答逻辑\n' + logic);
+    if (traps) parts.push('⚠️  易错点\n' + traps);
+    body = parts.length ? parts.join('\n\n') : '暂无解析数据。';
+  }
+
+  return header + '\n\n' + body;
+}
+
+function typewriter(text, el, scrollEl) {
+  var i = 0;
+  var iv = setInterval(function() {
+    if (i >= text.length) { clearInterval(iv); return; }
+    el.textContent += text[i];
+    i++;
+    if (scrollEl) scrollEl.scrollTop = scrollEl.scrollHeight;
+  }, 18);
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
 
 fetch('questions.json')
   .then(function(r) { return r.json(); })

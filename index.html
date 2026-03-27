@@ -101,6 +101,27 @@
     </div>
   </div>
 
+  <!-- Ask AI trigger (always visible) -->
+  <div class="ai-trigger-row" id="aiTriggerRow">
+    <button class="btn-ask-ai" onclick="openAiPanel()">&#10024; Ask AI</button>
+  </div>
+
+  <!-- AI Panel (inline, expands on click) -->
+  <div class="ai-panel" id="aiPanel">
+    <div class="ai-panel-header">
+      <span class="ai-panel-title">&#10024; Ask AI</span>
+      <button class="ai-close-btn" onclick="closeAiPanel()">&#10005;</button>
+    </div>
+    <div class="ai-chips" id="aiChips"></div>
+    <div class="ai-input-row">
+      <input id="aiInput" class="ai-input" placeholder="&#36755;&#20837;&#20320;&#30340;&#38382;&#39064;&#8230;" onkeydown="if(event.key==='Enter')submitAiQuestion()">
+      <button class="ai-send-btn" onclick="submitAiQuestion()">&#8593;</button>
+    </div>
+    <div class="ai-response-wrap">
+      <div class="ai-response" id="aiResponse"></div>
+    </div>
+  </div>
+
   <!-- Action bar -->
   <div class="action-bar" id="actionBar">
     <button class="btn btn-primary" id="showBtn" onclick="showAnswer()">&#10024; Reveal Answer</button>
@@ -137,27 +158,6 @@
         <span class="exp-hint">&#28857;&#20987;&#23637;&#24320;</span>
       </div>
       <div class="exp-body" id="expBody"></div>
-    </div>
-
-    <!-- Ask AI trigger -->
-    <div class="ai-trigger-row" id="aiTriggerRow">
-      <button class="btn-ask-ai" onclick="openAiPanel()">&#10024; Ask AI</button>
-    </div>
-
-    <!-- AI Panel (inline, hidden by default) -->
-    <div class="ai-panel" id="aiPanel">
-      <div class="ai-panel-header">
-        <span class="ai-panel-title">&#10024; Ask AI</span>
-        <button class="ai-close-btn" onclick="closeAiPanel()">&#10005;</button>
-      </div>
-      <div class="ai-chips" id="aiChips"></div>
-      <div class="ai-input-row">
-        <input id="aiInput" class="ai-input" placeholder="&#36755;&#20837;&#20320;&#30340;&#38382;&#39064;&#8230;" onkeydown="if(event.key==='Enter')submitAiQuestion()">
-        <button class="ai-send-btn" onclick="submitAiQuestion()">&#8593;</button>
-      </div>
-      <div class="ai-response-wrap">
-        <div class="ai-response" id="aiResponse"></div>
-      </div>
     </div>
 
   </div>

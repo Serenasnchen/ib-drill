@@ -552,8 +552,8 @@ body {
 /* ── Ask AI ──────────────────────────────────── */
 .ai-trigger-row {
   display: flex;
-  justify-content: center;
-  padding: 4px 0 10px;
+  justify-content: flex-start;
+  padding: 0 0 8px;
 }
 .btn-ask-ai {
   display: inline-flex;

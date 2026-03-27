@@ -267,27 +267,56 @@ function submitAiQuestion(q) {
   if (!question) return;
   input.value = '';
 
+  var revealed = document.getElementById('answerSection').classList.contains('visible');
   var resp = document.getElementById('aiResponse');
   resp.innerHTML = '<div class="ai-thinking">' +
     '<span class="ai-dot"></span><span class="ai-dot"></span><span class="ai-dot"></span>' +
     '</div>';
 
-  var answer = buildAiResponse(question);
-  setTimeout(function() {
-    resp.innerHTML = '';
-    var msgEl = document.createElement('div');
-    msgEl.className = 'ai-msg';
+  var payload = {
+    category:       current.category,
+    question:       current.question,
+    answer_en:      revealed ? current.answer_en : '',
+    answer_zh:      revealed ? current.answer_zh : '',
+    explanation_zh: current.explanation_zh,
+    userQuestion:   question,
+    revealed:       revealed
+  };
+
+  fetch('/api/ask', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(payload)
+  })
+  .then(function(r) { return r.json(); })
+  .then(function(data) {
+    var text = data.answer || data.error || '暂无回复，请重试。';
+    renderAiReply(text, data.answer ? '— Powered by Gemini' : '');
+  })
+  .catch(function() {
+    renderAiReply('网络错误，暂时无法连接 AI，请稍后重试。', '');
+  });
+}
+
+function renderAiReply(text, meta) {
+  var resp = document.getElementById('aiResponse');
+  resp.innerHTML = '';
+  var msgEl = document.createElement('div');
+  msgEl.className = 'ai-msg';
+  resp.appendChild(msgEl);
+  if (meta) {
     var metaEl = document.createElement('div');
     metaEl.className = 'ai-msg-meta';
-    metaEl.textContent = '— IB Drill AI Demo · 真实 AI 功能即将上线';
-    resp.appendChild(msgEl);
+    metaEl.textContent = meta;
     resp.appendChild(metaEl);
-    typewriter(answer, msgEl, resp);
-  }, 900);
+  }
+  typewriter(text, msgEl, resp);
 }
 
 function buildAiResponse(question) {
   if (!current) return '暂无题目数据。';
+
+  var revealed = document.getElementById('answerSection').classList.contains('visible');
 
   var exp = current.explanation_zh || '';
   var re = /【([^】]+)】([^【]*)/g;
@@ -319,7 +348,11 @@ function buildAiResponse(question) {
     body = parts.length ? parts.join('\n\n') : '暂无解析数据。';
   }
 
-  return header + '\n\n' + body;
+  var suffix = revealed
+    ? ''
+    : '\n\n💡 先自己思考，再点 Reveal Answer 对照标准答案！';
+
+  return header + '\n\n' + body + suffix;
 }
 
 function typewriter(text, el, scrollEl) {

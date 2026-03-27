@@ -52,7 +52,7 @@ ${contextBlock}
     ? '学生已看过答案，请结合答案和解析，深入解释背后的逻辑。'
     : '学生还未看答案，请给引导性分析和提示，不要直接说出完整答案。'
 }
-回答简洁清晰，150-250 字左右。`;
+回答完整清晰，至少 4-6 句，覆盖核心逻辑，不要截断。`;
 
   try {
     const geminiRes = await fetch(
@@ -64,7 +64,7 @@ ${contextBlock}
           contents: [{ parts: [{ text: prompt }] }],
           generationConfig: {
             temperature: 0.4,
-            maxOutputTokens: 512
+            maxOutputTokens: 1024
           }
         })
       }

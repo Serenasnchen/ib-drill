@@ -13,6 +13,7 @@ var activeTab  = 'practice';
 var answered   = lsGet('ib_answered');
 var reviewMode = 'dashboard';
 var reviewSubFilter = 'review';
+var CATEGORIES = ['Accounting', 'Valuation', 'M&A', 'LBO', 'FIG', 'ECM / DCM / LevFin', 'Private Companies', 'Restructuring'];
 
 function getFilters() {
   return {
@@ -292,10 +293,14 @@ function saveNote() {
 // ── Ask AI ────────────────────────────────────────────────────────────────
 
 var AI_CHIPS = {
-  'Accounting': ['为什么这样分类？', '现金流影响是？', '面试怎么表达更好？'],
-  'Valuation':  ['为什么用这个方法？', 'EV vs Equity Value?', '常见 multiples？'],
-  'M&A':        ['战略逻辑是什么？', '常见 synergies 类型？', '尽调重点在哪里？'],
-  'LBO':        ['为什么 LBO 有吸引力？', '杠杆结构怎么设计？', 'IRR 驱动因素？']
+  'Accounting':           ['为什么这样分类？', '现金流影响是？', '面试怎么表达更好？'],
+  'Valuation':            ['为什么用这个方法？', 'EV vs Equity Value?', '常见 multiples？'],
+  'M&A':                  ['战略逻辑是什么？', '常见 synergies 类型？', '尽调重点在哪里？'],
+  'LBO':                  ['为什么 LBO 有吸引力？', '杠杆结构怎么设计？', 'IRR 驱动因素？'],
+  'FIG':                  ['银行估值有什么特殊？', 'Book Value 为什么重要？', '监管资本怎么理解？'],
+  'ECM / DCM / LevFin':  ['IPO 流程是什么？', '债券定价逻辑？', 'Leveraged Loan 结构？'],
+  'Private Companies':    ['如何估值非上市公司？', 'Liquidity Discount?', '可比公司怎么选？'],
+  'Restructuring':        ['Chapter 11 流程？', 'Fulcrum Security?', '债务重组逻辑？']
 };
 
 function openAiPanel() {
@@ -644,11 +649,10 @@ function goToQuestion(id) {
 // ── Progress View ────────────────────────────────────────────────────────────
 
 function renderProgress() {
-  var cats = ['Accounting', 'Valuation', 'M&A', 'LBO'];
   var catTotal = {}, catAnswered = {};
-  for (var c = 0; c < cats.length; c++) {
-    catTotal[cats[c]] = 0;
-    catAnswered[cats[c]] = 0;
+  for (var c = 0; c < CATEGORIES.length; c++) {
+    catTotal[CATEGORIES[c]] = 0;
+    catAnswered[CATEGORIES[c]] = 0;
   }
 
   var noteCount = 0;
@@ -681,16 +685,17 @@ function renderProgress() {
   html += '<div class="progress-ring-label">\u5df2\u5b8c\u6210 ' + done + ' / ' + total + ' \u9898</div>';
   html += '</div></div>';
 
-  // category progress bars
-  html += '<div class="view-section-title">\u5206\u7c7b\u8fdb\u5ea6</div>';
+  // category progress bars (clickable)
+  html += '<div class="view-section-title">\u5206\u7c7b\u8fdb\u5ea6 <span style="font-weight:500;color:var(--text3);font-size:11px">\u00b7 \u70b9\u51fb\u8fdb\u5165\u5237\u9898</span></div>';
   html += '<div class="progress-cat-list">';
-  for (var k = 0; k < cats.length; k++) {
-    var cat = cats[k];
+  for (var k = 0; k < CATEGORIES.length; k++) {
+    var cat = CATEGORIES[k];
     var ct = catTotal[cat], ca = catAnswered[cat];
+    if (ct === 0) continue; // skip categories with no questions yet
     var cpct = ct > 0 ? Math.round((ca / ct) * 100) : 0;
-    html += '<div class="progress-cat-row">';
+    html += '<div class="progress-cat-row progress-cat-clickable" onclick="goToCategory(\'' + cat.replace(/'/g, "\\'") + '\')">';
     html += '<div class="progress-cat-top"><span class="progress-cat-name">' + esc(cat) + '</span>';
-    html += '<span class="progress-cat-frac">' + ca + ' / ' + ct + '</span></div>';
+    html += '<span class="progress-cat-frac">' + ca + ' / ' + ct + ' <span class="progress-cat-arrow">\u203a</span></span></div>';
     html += '<div class="progress-bar-track"><div class="progress-bar-fill" style="width:' + cpct + '%"></div></div>';
     html += '</div>';
   }
@@ -712,6 +717,14 @@ function renderProgress() {
   html += '</div>';
 
   document.getElementById('progressView').innerHTML = html;
+}
+
+function goToCategory(cat) {
+  document.getElementById('fCat').value = cat;
+  document.getElementById('fDiff').value = 'all';
+  document.getElementById('fSpecial').value = 'all';
+  document.getElementById('searchInput').value = '';
+  switchTab('practice');
 }
 
 // ─────────────────────────────────────────────────────────────────────────────

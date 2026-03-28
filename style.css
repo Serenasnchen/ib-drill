@@ -1091,6 +1091,19 @@ body {
   background: var(--pink);
   transition: width 0.5s ease;
 }
+.progress-cat-clickable {
+  cursor: pointer;
+  transition: border-color 0.18s;
+  -webkit-tap-highlight-color: transparent;
+}
+.progress-cat-clickable:hover { border-color: var(--pink); }
+.progress-cat-arrow {
+  font-size: 16px;
+  color: var(--text3);
+  margin-left: 4px;
+  transition: color 0.18s;
+}
+.progress-cat-clickable:hover .progress-cat-arrow { color: var(--pink); }
 .progress-insights {
   display: grid;
   grid-template-columns: 1fr 1fr 1fr;

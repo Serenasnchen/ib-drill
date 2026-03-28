@@ -9,6 +9,10 @@ var currentIndex = 0;
 var starred    = lsGet('ib_starred');
 var reviewList = lsGet('ib_review');
 var studyMode  = 'shuffle';
+var activeTab  = 'practice';
+var answered   = lsGet('ib_answered');
+var reviewMode = 'dashboard';
+var reviewSubFilter = 'review';
 
 function getFilters() {
   return {
@@ -20,6 +24,7 @@ function getFilters() {
 
 function applyFilter() {
   var f = getFilters();
+  if (activeTab === 'review') f.special = reviewSubFilter;
   var q = (document.getElementById('searchInput').value || '').trim().toLowerCase();
 
   pool = QUESTIONS.filter(function(item) {
@@ -110,6 +115,8 @@ function render() {
   // show/hide
   document.getElementById('qPanel').style.display    = '';
   document.getElementById('actionBar').style.display = '';
+  document.getElementById('aiTriggerRow').style.display = '';
+  document.querySelector('.card-notes').style.display = '';
   document.getElementById('emptyState').style.display = 'none';
   document.getElementById('footerHint').style.display = '';
 
@@ -149,11 +156,20 @@ function showEmpty() {
   document.getElementById('qPanel').style.display    = 'none';
   document.getElementById('answerSection').classList.remove('visible');
   document.getElementById('actionBar').style.display = 'none';
+  document.getElementById('aiTriggerRow').style.display = 'none';
+  document.querySelector('.card-notes').style.display = 'none';
   document.getElementById('emptyState').style.display = '';
   document.getElementById('footerHint').style.display = 'none';
   document.getElementById('sIdx').textContent   = '0';
   document.getElementById('sTotal').textContent = '0';
   document.getElementById('progressFill').style.width = '0%';
+
+  var msg = '\u6ca1\u6709\u5339\u914d\u7684\u9898\u76ee\uff0c\u8bd5\u8bd5\u6362\u4e2a\u7b5b\u9009\u6761\u4ef6~';
+  if (activeTab === 'review' && reviewSubFilter === 'review')
+    msg = '\u8fd8\u6ca1\u6709\u5f85\u590d\u4e60\u7684\u9898\u76ee\uff0c\u53bb Practice \u6807\u8bb0\u5427 \ud83d\udccc';
+  if (activeTab === 'review' && reviewSubFilter === 'starred')
+    msg = '\u8fd8\u6ca1\u6709\u6536\u85cf\u7684\u9898\u76ee\uff0c\u53bb Practice \u6dfb\u52a0\u5427 \u2b50';
+  document.getElementById('emptyState').querySelector('p').textContent = msg;
 }
 
 function showAnswer() {
@@ -162,6 +178,10 @@ function showAnswer() {
   btn.textContent = '\u2713 Answer Revealed';
   btn.disabled = true;
   btn.className = 'btn btn-primary answered';
+  if (current && answered.indexOf(current.id) === -1) {
+    answered.push(current.id);
+    lsSet('ib_answered', answered);
+  }
 }
 
 function nextQuestion() {
@@ -202,6 +222,7 @@ function toggleStar() {
   sb.textContent = isStarred ? '\u2605' : '\u2606';
   sb.className   = 'star-btn' + (isStarred ? ' starred' : '');
   document.getElementById('sStar').textContent = starred.length;
+  if (activeTab === 'review' && reviewSubFilter === 'starred' && reviewMode === 'drilling') applyFilter();
 }
 
 function toggleReview() {
@@ -214,6 +235,7 @@ function toggleReview() {
   rb.textContent = isRev ? '\u2714 In Review' : '\ud83d\udccc Review Later';
   rb.className   = 'btn btn-outline' + (isRev ? ' active-review' : '');
   document.getElementById('sRev').textContent = reviewList.length;
+  if (activeTab === 'review' && reviewSubFilter === 'review' && reviewMode === 'drilling') applyFilter();
 }
 
 function toggleExp() {
@@ -403,6 +425,293 @@ function typewriter(text, el, scrollEl) {
     i++;
     if (scrollEl) scrollEl.scrollTop = scrollEl.scrollHeight;
   }, 18);
+}
+
+// ── Tab Navigation ───────────────────────────────────────────────────────────
+
+function hideDrillUI() {
+  var ids = ['qPanel', 'actionBar', 'aiTriggerRow', 'footerHint', 'emptyState'];
+  for (var i = 0; i < ids.length; i++) document.getElementById(ids[i]).style.display = 'none';
+  document.querySelector('.card-notes').style.display = 'none';
+  document.getElementById('answerSection').classList.remove('visible');
+  document.getElementById('aiPanel').classList.remove('open');
+  document.querySelector('.toolbar').style.display = 'none';
+}
+
+function hideAllViews() {
+  document.getElementById('reviewDashboard').style.display = 'none';
+  document.getElementById('notesListView').style.display = 'none';
+  document.getElementById('progressView').style.display = 'none';
+  var backBtn = document.getElementById('reviewBackBtn');
+  if (backBtn) backBtn.style.display = 'none';
+}
+
+function switchTab(tab) {
+  activeTab = tab;
+
+  // update tab button active states
+  var items = document.querySelectorAll('.tab-item');
+  for (var i = 0; i < items.length; i++) {
+    items[i].className = 'tab-item' + (items[i].getAttribute('data-tab') === tab ? ' active' : '');
+  }
+
+  hideDrillUI();
+  hideAllViews();
+
+  if (tab === 'practice') {
+    document.querySelector('.toolbar').style.display = '';
+    document.getElementById('fSpecial').style.display = '';
+    applyFilter();
+  } else if (tab === 'review') {
+    reviewMode = 'dashboard';
+    document.getElementById('reviewDashboard').style.display = '';
+    renderReviewDashboard();
+  } else if (tab === 'notes') {
+    document.getElementById('notesListView').style.display = '';
+    renderNotesList();
+  } else if (tab === 'progress') {
+    document.getElementById('progressView').style.display = '';
+    renderProgress();
+  }
+
+  window.scrollTo(0, 0);
+}
+
+// ── Review Center ────────────────────────────────────────────────────────────
+
+function renderReviewDashboard() {
+  var revCount = reviewList.length;
+  var starCount = starred.length;
+  var activeCount = reviewSubFilter === 'review' ? revCount : starCount;
+
+  var html = '';
+  html += '<div class="review-header">\ud83d\udd04 \u590d\u4e60\u4e2d\u5fc3</div>';
+
+  // summary cards
+  html += '<div class="view-grid">';
+  html += '<div class="view-card"><div class="view-card-num c-amber">' + revCount + '</div><div class="view-card-label">\u5f85\u590d\u4e60</div></div>';
+  html += '<div class="view-card"><div class="view-card-num c-pink">' + starCount + '</div><div class="view-card-label">\u6536\u85cf\u9898</div></div>';
+  var reviewedCount = 0;
+  for (var i = 0; i < reviewList.length; i++) {
+    if (answered.indexOf(reviewList[i]) !== -1) reviewedCount++;
+  }
+  html += '<div class="view-card"><div class="view-card-num c-grn">' + reviewedCount + '</div><div class="view-card-label">\u5df2\u590d\u4e60</div></div>';
+  html += '</div>';
+
+  // sub-filter pills
+  html += '<div class="review-sub-pills">';
+  html += '<button class="review-pill' + (reviewSubFilter === 'review' ? ' active' : '') + '" onclick="setReviewSubFilter(\'review\')">';
+  html += '<span class="review-pill-count">' + revCount + '</span>\ud83d\udccc \u5f85\u590d\u4e60</button>';
+  html += '<button class="review-pill' + (reviewSubFilter === 'starred' ? ' active' : '') + '" onclick="setReviewSubFilter(\'starred\')">';
+  html += '<span class="review-pill-count">' + starCount + '</span>\u2b50 \u6536\u85cf\u9898</button>';
+  html += '</div>';
+
+  // start button
+  var label = reviewSubFilter === 'review' ? '\u5f00\u59cb\u590d\u4e60' : '\u5f00\u59cb\u5237\u6536\u85cf\u9898';
+  html += '<button class="review-start-btn" onclick="startReviewDrill()"' + (activeCount === 0 ? ' disabled' : '') + '>';
+  html += '\u25b6 ' + label + ' (' + activeCount + ' \u9898)</button>';
+
+  // empty encouragement
+  if (activeCount === 0) {
+    html += '<div class="review-empty">';
+    html += '<div class="review-empty-icon">' + (reviewSubFilter === 'review' ? '\ud83c\udf89' : '\u2b50') + '</div>';
+    html += '<div class="review-empty-text">' +
+      (reviewSubFilter === 'review'
+        ? '\u6682\u65e0\u5f85\u590d\u4e60\u9898\u76ee<br>\u5728 Practice \u4e2d\u70b9\u51fb\u300cReview Later\u300d\u6dfb\u52a0'
+        : '\u6682\u65e0\u6536\u85cf\u9898\u76ee<br>\u5728 Practice \u4e2d\u70b9\u51fb \u2606 \u6536\u85cf') +
+      '</div></div>';
+  }
+
+  document.getElementById('reviewDashboard').innerHTML = html;
+}
+
+function setReviewSubFilter(f) {
+  reviewSubFilter = f;
+  renderReviewDashboard();
+}
+
+function startReviewDrill() {
+  reviewMode = 'drilling';
+  document.getElementById('reviewDashboard').style.display = 'none';
+
+  // show drill UI with back button
+  document.querySelector('.toolbar').style.display = '';
+  document.getElementById('fSpecial').style.display = 'none';
+
+  // inject back button if not exists
+  var main = document.querySelector('.main');
+  var backBtn = document.getElementById('reviewBackBtn');
+  if (!backBtn) {
+    backBtn = document.createElement('button');
+    backBtn.id = 'reviewBackBtn';
+    backBtn.className = 'review-back-btn';
+    backBtn.textContent = '\u2190 \u8fd4\u56de\u590d\u4e60\u4e2d\u5fc3';
+    backBtn.onclick = backToReviewDashboard;
+    main.insertBefore(backBtn, main.firstChild);
+  }
+  backBtn.style.display = '';
+
+  applyFilter();
+}
+
+function backToReviewDashboard() {
+  reviewMode = 'dashboard';
+  hideDrillUI();
+  var backBtn = document.getElementById('reviewBackBtn');
+  if (backBtn) backBtn.style.display = 'none';
+  document.getElementById('reviewDashboard').style.display = '';
+  renderReviewDashboard();
+  window.scrollTo(0, 0);
+}
+
+// ── Notes List ───────────────────────────────────────────────────────────────
+
+function renderNotesList() {
+  var items = [];
+  for (var i = 0; i < QUESTIONS.length; i++) {
+    var q = QUESTIONS[i];
+    var note = '';
+    try { note = localStorage.getItem('ib_note_' + q.id) || ''; } catch(e) {}
+    if (note) items.push({ q: q, note: note });
+  }
+
+  var html = '';
+  html += '<div class="notes-list-header">';
+  html += '<span class="notes-list-title">\ud83d\udcd2 My Notes</span>';
+  html += '<span class="notes-list-count">\u5171 ' + items.length + ' \u6761</span>';
+  html += '</div>';
+
+  if (items.length === 0) {
+    html += '<div class="notes-list-empty">';
+    html += '<div class="notes-list-empty-icon">\ud83d\udcdd</div>';
+    html += '<div class="notes-list-empty-text">\u8fd8\u6ca1\u6709\u7b14\u8bb0<br>\u5728 Practice \u4e2d\u8bb0\u5f55\u4f60\u7684\u601d\u8003\u5427</div>';
+    html += '</div>';
+  } else {
+    html += '<div class="notes-list">';
+    for (var j = 0; j < items.length; j++) {
+      var item = items[j];
+      var diffClass = item.q.difficulty === 'Easy' ? 'badge-easy' : item.q.difficulty === 'Medium' ? 'badge-med' : 'badge-hard';
+      html += '<div class="notes-list-item" onclick="goToQuestion(\'' + item.q.id + '\')">';
+      html += '<div class="notes-item-badges">';
+      html += '<span class="badge badge-cat">' + esc(item.q.category) + '</span>';
+      html += '<span class="badge ' + diffClass + '">' + esc(item.q.difficulty) + '</span>';
+      html += '</div>';
+      html += '<div class="notes-item-q">' + esc(item.q.question) + '</div>';
+      html += '<div class="notes-item-preview">\ud83d\udcdd ' + esc(item.note.substring(0, 80)) + (item.note.length > 80 ? '...' : '') + '</div>';
+      html += '</div>';
+    }
+    html += '</div>';
+  }
+
+  document.getElementById('notesListView').innerHTML = html;
+}
+
+function goToQuestion(id) {
+  var q = null;
+  for (var i = 0; i < QUESTIONS.length; i++) {
+    if (QUESTIONS[i].id === id) { q = QUESTIONS[i]; break; }
+  }
+  if (!q) return;
+
+  // switch to practice tab
+  activeTab = 'practice';
+  var items = document.querySelectorAll('.tab-item');
+  for (var j = 0; j < items.length; j++) {
+    items[j].className = 'tab-item' + (items[j].getAttribute('data-tab') === 'practice' ? ' active' : '');
+  }
+
+  hideAllViews();
+
+  // set current question and render
+  current = q;
+  currentIndex = pool.indexOf(q);
+  if (currentIndex === -1) {
+    // question might not be in current pool, reset pool to all
+    document.getElementById('fCat').value = 'all';
+    document.getElementById('fDiff').value = 'all';
+    document.getElementById('fSpecial').value = 'all';
+    document.getElementById('searchInput').value = '';
+    pool = QUESTIONS.slice();
+    currentIndex = pool.indexOf(q);
+  }
+
+  document.querySelector('.toolbar').style.display = '';
+  document.getElementById('fSpecial').style.display = '';
+  render();
+  window.scrollTo(0, 0);
+}
+
+// ── Progress View ────────────────────────────────────────────────────────────
+
+function renderProgress() {
+  var cats = ['Accounting', 'Valuation', 'M&A', 'LBO'];
+  var catTotal = {}, catAnswered = {};
+  for (var c = 0; c < cats.length; c++) {
+    catTotal[cats[c]] = 0;
+    catAnswered[cats[c]] = 0;
+  }
+
+  var noteCount = 0;
+  for (var i = 0; i < QUESTIONS.length; i++) {
+    var q = QUESTIONS[i];
+    if (catTotal[q.category] !== undefined) catTotal[q.category]++;
+    if (answered.indexOf(q.id) !== -1 && catAnswered[q.category] !== undefined) catAnswered[q.category]++;
+    try { if (localStorage.getItem('ib_note_' + q.id)) noteCount++; } catch(e) {}
+  }
+
+  var total = QUESTIONS.length;
+  var done = answered.length;
+  var pct = total > 0 ? Math.round((done / total) * 100) : 0;
+
+  // SVG ring
+  var r = 42, circ = 2 * Math.PI * r;
+  var offset = circ - (pct / 100) * circ;
+
+  var html = '';
+
+  // completion ring
+  html += '<div class="view-section-title">\u5b66\u4e60\u8fdb\u5ea6</div>';
+  html += '<div class="progress-ring-wrap">';
+  html += '<svg class="progress-ring-svg" viewBox="0 0 100 100">';
+  html += '<circle class="progress-ring-bg" cx="50" cy="50" r="' + r + '"/>';
+  html += '<circle class="progress-ring-fill" cx="50" cy="50" r="' + r + '" stroke-dasharray="' + circ + '" stroke-dashoffset="' + offset + '"/>';
+  html += '</svg>';
+  html += '<div class="progress-ring-text">';
+  html += '<div class="progress-ring-pct">' + pct + '%</div>';
+  html += '<div class="progress-ring-label">\u5df2\u5b8c\u6210 ' + done + ' / ' + total + ' \u9898</div>';
+  html += '</div></div>';
+
+  // category progress bars
+  html += '<div class="view-section-title">\u5206\u7c7b\u8fdb\u5ea6</div>';
+  html += '<div class="progress-cat-list">';
+  for (var k = 0; k < cats.length; k++) {
+    var cat = cats[k];
+    var ct = catTotal[cat], ca = catAnswered[cat];
+    var cpct = ct > 0 ? Math.round((ca / ct) * 100) : 0;
+    html += '<div class="progress-cat-row">';
+    html += '<div class="progress-cat-top"><span class="progress-cat-name">' + esc(cat) + '</span>';
+    html += '<span class="progress-cat-frac">' + ca + ' / ' + ct + '</span></div>';
+    html += '<div class="progress-bar-track"><div class="progress-bar-fill" style="width:' + cpct + '%"></div></div>';
+    html += '</div>';
+  }
+  html += '</div>';
+
+  // insights grid
+  html += '<div class="view-section-title">\u5b66\u4e60\u6d1e\u5bdf</div>';
+  html += '<div class="progress-insights">';
+  html += '<div class="view-card"><div class="view-card-num c-pink">' + starred.length + '</div><div class="view-card-label">\u6536\u85cf\u9898</div></div>';
+  html += '<div class="view-card"><div class="view-card-num c-amber">' + reviewList.length + '</div><div class="view-card-label">\u5f85\u590d\u4e60</div></div>';
+  html += '<div class="view-card"><div class="view-card-num c-grn">' + noteCount + '</div><div class="view-card-label">\u7b14\u8bb0</div></div>';
+  html += '</div>';
+
+  // mode
+  html += '<div class="view-section-title">\u5f53\u524d\u8bbe\u7f6e</div>';
+  html += '<div class="progress-cat-row">';
+  html += '<div class="progress-cat-top"><span class="progress-cat-name">\u5237\u9898\u6a21\u5f0f</span>';
+  html += '<span class="progress-cat-frac" style="color:var(--pink)">' + (studyMode === 'shuffle' ? '\u21c4 Shuffle' : '\u2192 Sequential') + '</span></div>';
+  html += '</div>';
+
+  document.getElementById('progressView').innerHTML = html;
 }
 
 // ─────────────────────────────────────────────────────────────────────────────

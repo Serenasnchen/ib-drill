@@ -685,18 +685,26 @@ function renderProgress() {
   html += '<div class="progress-ring-label">\u5df2\u5b8c\u6210 ' + done + ' / ' + total + ' \u9898</div>';
   html += '</div></div>';
 
-  // category progress bars (clickable)
-  html += '<div class="view-section-title">\u5206\u7c7b\u8fdb\u5ea6 <span style="font-weight:500;color:var(--text3);font-size:11px">\u00b7 \u70b9\u51fb\u8fdb\u5165\u5237\u9898</span></div>';
+  // category progress bars (clickable to expand)
+  html += '<div class="view-section-title">\u5206\u7c7b\u8fdb\u5ea6 <span style="font-weight:500;color:var(--text3);font-size:11px">\u00b7 \u70b9\u51fb\u67e5\u770b\u9898\u76ee</span></div>';
   html += '<div class="progress-cat-list">';
   for (var k = 0; k < CATEGORIES.length; k++) {
     var cat = CATEGORIES[k];
     var ct = catTotal[cat], ca = catAnswered[cat];
-    if (ct === 0) continue; // skip categories with no questions yet
+    if (ct === 0) continue;
     var cpct = ct > 0 ? Math.round((ca / ct) * 100) : 0;
-    html += '<div class="progress-cat-row progress-cat-clickable" onclick="goToCategory(\'' + cat.replace(/'/g, "\\'") + '\')">';
+    var isOpen = expandedCat === cat;
+    html += '<div class="progress-cat-section">';
+    html += '<div class="progress-cat-row progress-cat-clickable' + (isOpen ? ' progress-cat-expanded' : '') + '" onclick="toggleCatDetail(\'' + cat.replace(/'/g, "\\'") + '\')">';
     html += '<div class="progress-cat-top"><span class="progress-cat-name">' + esc(cat) + '</span>';
-    html += '<span class="progress-cat-frac">' + ca + ' / ' + ct + ' <span class="progress-cat-arrow">\u203a</span></span></div>';
+    html += '<span class="progress-cat-frac">' + ca + ' / ' + ct + ' <span class="progress-cat-chevron' + (isOpen ? ' open' : '') + '">\u25b8</span></span></div>';
     html += '<div class="progress-bar-track"><div class="progress-bar-fill" style="width:' + cpct + '%"></div></div>';
+    html += '</div>';
+    html += '<div class="progress-cat-detail" id="catDetail_' + k + '"' + (isOpen ? '' : ' style="display:none"') + '>';
+    if (isOpen) {
+      html += buildCatDetailHTML(cat);
+    }
+    html += '</div>';
     html += '</div>';
   }
   html += '</div>';
@@ -719,12 +727,44 @@ function renderProgress() {
   document.getElementById('progressView').innerHTML = html;
 }
 
-function goToCategory(cat) {
-  document.getElementById('fCat').value = cat;
-  document.getElementById('fDiff').value = 'all';
-  document.getElementById('fSpecial').value = 'all';
-  document.getElementById('searchInput').value = '';
-  switchTab('practice');
+var expandedCat = null;
+
+function toggleCatDetail(cat) {
+  if (expandedCat === cat) {
+    expandedCat = null;
+  } else {
+    expandedCat = cat;
+  }
+  renderProgress();
+  // scroll the expanded section into view
+  if (expandedCat) {
+    var idx = CATEGORIES.indexOf(expandedCat);
+    var el = document.getElementById('catDetail_' + idx);
+    if (el) {
+      setTimeout(function() {
+        el.previousElementSibling.scrollIntoView({ behavior: 'smooth', block: 'start' });
+      }, 50);
+    }
+  }
+}
+
+function buildCatDetailHTML(cat) {
+  var qs = [];
+  for (var i = 0; i < QUESTIONS.length; i++) {
+    if (QUESTIONS[i].category === cat) qs.push(QUESTIONS[i]);
+  }
+  var html = '';
+  for (var j = 0; j < qs.length; j++) {
+    var q = qs[j];
+    var diffClass = q.difficulty === 'Easy' ? 'badge-easy' : q.difficulty === 'Medium' ? 'badge-med' : 'badge-hard';
+    var isDone = answered.indexOf(q.id) !== -1;
+    html += '<div class="cat-detail-item" onclick="goToQuestion(\'' + q.id + '\')">';
+    html += '<span class="cat-detail-status">' + (isDone ? '\u2705' : '\u25cb') + '</span>';
+    html += '<span class="badge ' + diffClass + ' cat-detail-diff">' + esc(q.difficulty) + '</span>';
+    html += '<span class="cat-detail-q">' + esc(q.question) + '</span>';
+    html += '</div>';
+  }
+  return html;
 }
 
 // ─────────────────────────────────────────────────────────────────────────────

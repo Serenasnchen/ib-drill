@@ -1,5 +1,3 @@
-@import url('https://fonts.googleapis.com/css2?family=Inter:ital,wght@0,400;0,500;0,600;0,700;1,400&display=swap');
-
 :root {
   --pink:       #F03973;
   --pink-dk:    #D8305F;
@@ -29,7 +27,7 @@
 * { box-sizing: border-box; margin: 0; padding: 0; }
 
 body {
-  font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+  font-family: 'Times New Roman', 'KaiTi', '楷体', serif;
   background: var(--bg);
   color: var(--text);
   font-size: 14px;

@@ -303,12 +303,16 @@ var AI_CHIPS = {
   'Restructuring':        ['Chapter 11 流程？', 'Fulcrum Security?', '债务重组逻辑？']
 };
 
-function openAiPanel() {
-  if (!current) return;
+function toggleAiPanel() {
   var panel = document.getElementById('aiPanel');
-  var trigger = document.getElementById('aiTriggerRow');
+  var fab = document.getElementById('aiFab');
+  if (panel.classList.contains('open')) {
+    closeAiPanel();
+    return;
+  }
+  if (!current) return;
   panel.classList.add('open');
-  trigger.style.display = 'none';
+  fab.classList.add('hidden');
 
   var chips = AI_CHIPS[current.category] || ['为什么这样？', '能举个例子吗？', '面试怎么答？'];
   document.getElementById('aiChips').innerHTML = chips.map(function(c) {
@@ -321,11 +325,13 @@ function openAiPanel() {
   setTimeout(function() { document.getElementById('aiInput').focus(); }, 150);
 }
 
+function openAiPanel() { toggleAiPanel(); }
+
 function closeAiPanel() {
   var panel = document.getElementById('aiPanel');
-  var trigger = document.getElementById('aiTriggerRow');
+  var fab = document.getElementById('aiFab');
   if (panel) panel.classList.remove('open');
-  if (trigger) trigger.style.display = '';
+  if (fab) fab.classList.remove('hidden');
 }
 
 function submitAiQuestion(q) {
@@ -462,6 +468,10 @@ function switchTab(tab) {
 
   hideDrillUI();
   hideAllViews();
+  closeAiPanel();
+
+  var fab = document.getElementById('aiFab');
+  fab.style.display = (tab === 'practice' || tab === 'review') ? '' : 'none';
 
   if (tab === 'practice') {
     document.querySelector('.toolbar').style.display = '';

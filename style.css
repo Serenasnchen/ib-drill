@@ -547,41 +547,46 @@ body {
 .app-wrap { display: none; }
 .app-wrap.visible { display: block; }
 
-/* ── Ask AI ──────────────────────────────────── */
-.ai-trigger-row {
-  display: flex;
-  justify-content: flex-start;
-  padding: 4px 0 8px;
-}
-.btn-ask-ai {
-  display: inline-flex;
-  align-items: center;
-  gap: 6px;
-  height: 34px;
-  padding: 0 20px;
-  border-radius: var(--r-pill);
-  border: 1.5px solid #C4B5FD;
-  background: var(--violet-lt);
-  color: var(--violet);
-  font-size: 12.5px;
-  font-weight: 600;
-  font-family: inherit;
+/* ── AI FAB ──────────────────────────────────── */
+.ai-fab {
+  position: fixed;
+  right: 20px;
+  bottom: calc(72px + env(safe-area-inset-bottom));
+  width: 50px;
+  height: 50px;
+  border-radius: 50%;
+  border: none;
+  background: var(--violet);
+  color: #fff;
+  font-size: 22px;
   cursor: pointer;
-  transition: background 0.15s, border-color 0.15s, transform 0.1s;
+  box-shadow: 0 4px 14px rgba(124,58,237,0.35);
+  z-index: 200;
+  transition: transform 0.15s, box-shadow 0.15s, opacity 0.15s;
+  display: flex;
+  align-items: center;
+  justify-content: center;
 }
-.btn-ask-ai:hover { background: var(--violet-md); border-color: #A78BFA; }
-.btn-ask-ai:active { transform: scale(0.96); }
+.ai-fab:hover { transform: scale(1.08); box-shadow: 0 6px 20px rgba(124,58,237,0.45); }
+.ai-fab:active { transform: scale(0.94); }
+.ai-fab.hidden { opacity: 0; pointer-events: none; }
 
 .ai-panel {
   display: none;
+  position: fixed;
+  left: 12px;
+  right: 12px;
+  bottom: calc(72px + env(safe-area-inset-bottom));
+  max-height: 60vh;
   background: var(--surface);
   border: 1.5px solid #C4B5FD;
-  border-left: 3px solid var(--violet);
-  border-radius: var(--r-md);
-  margin-bottom: 8px;
+  border-radius: var(--r-lg);
+  box-shadow: 0 8px 30px rgba(0,0,0,0.15);
+  z-index: 210;
   overflow: hidden;
+  flex-direction: column;
 }
-.ai-panel.open { display: block; }
+.ai-panel.open { display: flex; }
 
 .ai-panel-header {
   display: flex;
@@ -675,10 +680,9 @@ body {
 .ai-send-btn:hover { background: #6D28D9; }
 .ai-send-btn:active { transform: scale(0.93); }
 
-.ai-response-wrap { padding: 0 16px 14px; }
+.ai-response-wrap { padding: 0 16px 14px; flex: 1; overflow-y: auto; }
 .ai-response {
-  max-height: 480px;
-  overflow-y: auto;
+  max-height: none;
 }
 
 /* Thinking dots */

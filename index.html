@@ -105,12 +105,7 @@
     </div>
   </div>
 
-  <!-- Ask AI trigger (always visible) -->
-  <div class="ai-trigger-row" id="aiTriggerRow">
-    <button class="btn-ask-ai" onclick="openAiPanel()">&#10024; Ask AI</button>
-  </div>
-
-  <!-- AI Panel (inline, expands on click) -->
+  <!-- AI Panel (floating overlay) -->
   <div class="ai-panel" id="aiPanel">
     <div class="ai-panel-header">
       <span class="ai-panel-title">&#10024; Ask AI</span>
@@ -201,6 +196,9 @@
   <div class="progress-view" id="progressView" style="display:none"></div>
 
 </div>
+
+<!-- AI FAB -->
+<button class="ai-fab" id="aiFab" onclick="toggleAiPanel()">&#10024;</button>
 
 <!-- Tab Bar -->
 <nav class="tab-bar" id="tabBar">

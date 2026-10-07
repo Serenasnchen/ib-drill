@@ -48,16 +48,25 @@
 <!-- Welcome Screen -->
 <div class="welcome-screen" id="welcomeScreen">
   <div class="wlc-inner">
-    <div class="wlc-mark" aria-hidden="true">IB</div>
-    <p class="wlc-eyebrow">Investment Banking Technicals</p>
-    <h1 class="wlc-title">IB Drill</h1>
-    <p class="wlc-sub">You will always be a free summer &#10024;</p>
-    <ul class="wlc-features">
-      <li><svg class="ic" aria-hidden="true"><use href="#i-book"/></svg><span><b>Bilingual drills</b>English &middot; &#20013;&#25991;&#21452;&#35821;&#31572;&#26696;</span></li>
-      <li><svg class="ic" aria-hidden="true"><use href="#i-sparkles"/></svg><span><b>Ask AI</b>&#21345;&#20303;&#20102;&#38543;&#26102;&#36861;&#38382;</span></li>
-      <li><svg class="ic" aria-hidden="true"><use href="#i-review"/></svg><span><b>Review &amp; notes</b>&#25910;&#34255; &middot; &#22797;&#20064; &middot; &#31508;&#35760;</span></li>
-    </ul>
-    <button class="wlc-btn" onclick="startApp()">Start practicing<svg class="ic" aria-hidden="true"><use href="#i-arrow-right"/></svg></button>
+    <div class="wlc-art" aria-hidden="true">
+      <div class="wlc-card wlc-card-under"></div>
+      <div class="wlc-card">
+        <div class="wlc-card-meta"><span class="wlc-k">Valuation</span><span class="wlc-d">Medium</span><span class="wlc-id">VAL_001</span></div>
+        <p class="wlc-card-q">Walk me through a DCF.</p>
+        <div class="wlc-card-foot"><span class="wlc-bar"><i></i></span><span class="wlc-pos">12 / 160</span></div>
+      </div>
+    </div>
+    <div class="wlc-copy">
+      <p class="wlc-eyebrow"><span class="wlc-mark" aria-hidden="true">IB</span>Investment Banking Technicals</p>
+      <h1 class="wlc-title">IB Drill</h1>
+      <p class="wlc-sub">You will always be a free summer &#10024;</p>
+      <button class="wlc-btn" onclick="startApp()">Start practicing<svg class="ic" aria-hidden="true"><use href="#i-arrow-right"/></svg></button>
+      <ul class="wlc-features">
+        <li><svg class="ic" aria-hidden="true"><use href="#i-book"/></svg><span><b>160 bilingual drills</b>English &middot; &#20013;&#25991;&#21452;&#35821;&#31572;&#26696;</span></li>
+        <li><svg class="ic" aria-hidden="true"><use href="#i-sparkles"/></svg><span><b>Ask AI</b>&#21345;&#20303;&#20102;&#38543;&#26102;&#36861;&#38382;</span></li>
+        <li><svg class="ic" aria-hidden="true"><use href="#i-review"/></svg><span><b>Review &amp; notes</b>&#25910;&#34255; &middot; &#22797;&#20064; &middot; &#31508;&#35760;</span></li>
+      </ul>
+    </div>
   </div>
 </div>
 
@@ -71,7 +80,7 @@
       <div class="brand-mark" aria-hidden="true">IB</div>
       <div class="brand-text">
         <div class="brand-title">IB Drill</div>
-        <div class="brand-sub">You will always be a free summer &#10024;</div>
+        <div class="brand-sub">You will always be <span class="nowrap">a free summer &#10024;</span></div>
       </div>
     </div>
     <div class="session header-stats" aria-label="Session">
@@ -81,6 +90,10 @@
       </div>
       <div class="progress-bar-wrap" aria-hidden="true">
         <div class="progress-bar-fill" id="progressFill" style="width:0%"></div>
+      </div>
+      <div class="session-answered" title="Questions whose answer you have revealed">
+        <svg class="mini-ring" viewBox="0 0 36 36" aria-hidden="true"><circle class="mini-ring-bg" cx="18" cy="18" r="15"/><circle class="mini-ring-fill" id="answeredRing" cx="18" cy="18" r="15" stroke-dasharray="94.25" stroke-dashoffset="94.25"/></svg>
+        <span class="session-answered-text"><b id="sAnswered">0</b> answered <span class="session-answered-of">of <span id="sAnsweredTotal">160</span></span></span>
       </div>
       <div class="session-meta">
         <span class="hstat" title="Starred"><svg class="ic" aria-hidden="true"><use href="#i-star"/></svg><span class="hstat-num" id="sStar">0</span><span class="sr-only">starred</span></span>
@@ -112,7 +125,8 @@
       <div><dt><kbd>Space</kbd></dt><dd>Reveal</dd></div>
       <div><dt><kbd>S</kbd></dt><dd>Star</dd></div>
       <div><dt><kbd>R</kbd></dt><dd>Review later</dd></div>
-      <div><dt><kbd>Esc</kbd></dt><dd>Close AI</dd></div>
+      <div><dt><kbd>A</kbd></dt><dd>Ask AI</dd></div>
+      <div><dt><kbd>Esc</kbd></dt><dd>Close panel</dd></div>
     </dl>
   </div>
 </div>
@@ -154,6 +168,10 @@
           <option value="starred">Starred</option>
           <option value="review">Review later</option>
         </select>
+        <div class="filter-foot">
+          <button class="filter-reset" type="button" onclick="resetFilters()">Reset</button>
+          <button class="filter-done" type="button" id="filterDone" onclick="toggleFilters(false)">Show results</button>
+        </div>
       </div>
       <div class="mode-row" role="group" aria-label="Question order">
         <button class="mode-btn mode-active" id="modeShuffleBtn" onclick="setMode('shuffle')" aria-pressed="true" aria-label="Shuffle order" title="Shuffle"><svg class="ic" aria-hidden="true"><use href="#i-shuffle"/></svg></button>
@@ -162,7 +180,7 @@
     </div>
   </div>
 
-  <!-- The page: question, then answer, then actions -->
+  <!-- The page: question, note, answer (or the back of the card), then a sticky footer of actions -->
   <article class="q-card" id="qPanel" aria-labelledby="qText">
     <header class="q-card-header">
       <div class="q-badges">
@@ -170,19 +188,34 @@
         <span class="badge" id="tagDiff"></span>
         <span class="q-id-text" id="qId"></span>
       </div>
-      <div class="q-actions">
-        <button class="ai-fab" id="aiFab" onclick="toggleAiPanel()" aria-label="Ask AI about this question" aria-controls="aiPanel" aria-expanded="false">
-          <svg class="ic" aria-hidden="true"><use href="#i-sparkles"/></svg><span class="ai-fab-label">Ask AI</span>
-        </button>
-        <button class="star-btn" id="starBtn" onclick="toggleStar()" aria-label="Star this question" aria-pressed="false" title="Star (S)">
-          <svg class="ic" aria-hidden="true"><use href="#i-star"/></svg>
-        </button>
-      </div>
+      <button class="star-btn" id="starBtn" onclick="toggleStar()" aria-label="Star this question" aria-pressed="false" title="Star (S)">
+        <svg class="ic" aria-hidden="true"><use href="#i-star"/></svg>
+      </button>
     </header>
 
     <div class="q-body">
       <h1 class="q-text" id="qText"></h1>
     </div>
+
+    <!-- My notes: right under the question, never a long scroll away -->
+    <section class="card-notes" aria-label="My notes">
+      <button class="notes-toggle-row" onclick="toggleNotes()" aria-controls="notesBody" aria-expanded="false">
+        <span class="notes-toggle-left">
+          <svg class="ic" aria-hidden="true"><use href="#i-pen"/></svg>
+          <span class="answer-label label-notes">My notes</span>
+        </span>
+        <span class="notes-toggle-right">
+          <span class="notes-hint" id="notesHint">&#28857;&#20987;&#35760;&#24405;&#31508;&#35760;</span>
+          <svg class="ic notes-chevron" id="notesChevron" aria-hidden="true"><use href="#i-chevron-down"/></svg>
+        </span>
+      </button>
+      <div class="notes-body" id="notesBody">
+        <textarea id="notesInput" class="notes-textarea" aria-label="My notes for this question"
+          placeholder="&#35760;&#24405;&#20320;&#30340;&#29702;&#35299;&#12289;&#35760;&#24518;&#26041;&#27861;&#12289;&#38754;&#35797;&#35201;&#28857;&#8230;"
+          oninput="saveNote()"></textarea>
+        <div class="notes-foot">&#33258;&#21160;&#20445;&#23384;&#21040;&#26412;&#26426; &middot; Saved on this device</div>
+      </div>
+    </section>
 
     <div class="answer-section" id="answerSection">
       <div class="answer-grid">
@@ -205,43 +238,36 @@
           </span>
           <span class="exp-hint"><svg class="ic exp-chevron" id="expChevron" aria-hidden="true"><use href="#i-chevron-down"/></svg></span>
         </button>
-        <div class="exp-body" id="expBody"></div>
+        <div class="exp-body" id="expBody" lang="zh"></div>
       </div>
     </div>
 
-    <!-- Action bar: floating dock on phones, sticky footer of the page on larger screens -->
+    <!-- Back of the card: shown until the answer is revealed -->
+    <button class="answer-placeholder" type="button" onclick="showAnswer()" aria-label="Reveal answer">
+      <span class="ph-kicker">English &middot; &#20013;&#25991; &middot; &#35299;&#26512;</span>
+      <span class="ph-title">The answer is on the back.</span>
+      <span class="ph-sub">Say your answer out loud first, then flip. <span class="ph-zh" lang="zh">&#20808;&#33258;&#24049;&#35828;&#19968;&#36941;&#65292;&#20877;&#32763;&#38754;&#12290;</span></span>
+      <span class="ph-cta"><svg class="ic" aria-hidden="true"><use href="#i-eye"/></svg>Flip the card<kbd class="kbd-hint">Space</kbd></span>
+    </button>
+
+    <!-- Actions: floating dock on phones, sticky footer of the card on larger screens -->
     <div class="action-bar" id="actionBar">
-      <button class="btn btn-outline" id="btnReview" onclick="toggleReview()" aria-pressed="false" title="Review later (R)">
-        <svg class="ic" aria-hidden="true"><use href="#i-bookmark"/></svg><span class="btn-label">Review later</span>
-      </button>
-      <button class="btn btn-primary" id="showBtn" onclick="showAnswer()">
-        <svg class="ic" aria-hidden="true"><use href="#i-eye"/></svg><span class="btn-label">Reveal answer</span><kbd class="kbd-hint">Space</kbd>
-      </button>
-      <button class="btn btn-next" id="nextBtn" onclick="nextQuestion()" title="Next (&#8594; or N)">
-        <span class="btn-label">Next</span><svg class="ic" aria-hidden="true"><use href="#i-arrow-right"/></svg><kbd class="kbd-hint">N</kbd>
-      </button>
+      <div class="action-tray">
+        <button class="btn btn-primary" id="showBtn" onclick="showAnswer()">
+          <svg class="ic" aria-hidden="true"><use href="#i-eye"/></svg><span class="btn-label"><span class="lbl-long">Reveal answer</span><span class="lbl-short">Reveal</span></span><kbd class="kbd-hint">Space</kbd>
+        </button>
+        <button class="btn btn-outline" id="btnReview" onclick="toggleReview()" aria-pressed="false" title="Review later (R)">
+          <svg class="ic" aria-hidden="true"><use href="#i-bookmark"/></svg><span class="btn-label">Review later</span><kbd class="kbd-hint">R</kbd>
+        </button>
+        <button class="btn btn-outline ai-fab" id="aiFab" onclick="toggleAiPanel()" aria-label="Ask AI about this question" aria-controls="aiPanel" aria-expanded="false" title="Ask AI (A)">
+          <svg class="ic" aria-hidden="true"><use href="#i-sparkles"/></svg><span class="btn-label ai-fab-label">Ask AI</span><kbd class="kbd-hint">A</kbd>
+        </button>
+        <button class="btn btn-next" id="nextBtn" onclick="nextQuestion()" title="Next (&#8594; or N)">
+          <span class="btn-label">Next</span><svg class="ic" aria-hidden="true"><use href="#i-arrow-right"/></svg><kbd class="kbd-hint">N</kbd>
+        </button>
+      </div>
     </div>
   </article>
-
-  <!-- My Notes accordion -->
-  <section class="answer-card card-notes">
-    <button class="notes-toggle-row" onclick="toggleNotes()" aria-controls="notesBody">
-      <span class="notes-toggle-left">
-        <svg class="ic" aria-hidden="true"><use href="#i-pen"/></svg>
-        <span class="answer-label label-notes">My notes</span>
-      </span>
-      <span class="notes-toggle-right">
-        <span class="notes-hint" id="notesHint">&#28857;&#20987;&#35760;&#24405;&#31508;&#35760;</span>
-        <svg class="ic notes-chevron" id="notesChevron" aria-hidden="true"><use href="#i-chevron-down"/></svg>
-      </span>
-    </button>
-    <div class="notes-body" id="notesBody">
-      <textarea id="notesInput" class="notes-textarea" aria-label="My notes for this question"
-        placeholder="&#35760;&#24405;&#20320;&#30340;&#29702;&#35299;&#12289;&#35760;&#24518;&#26041;&#27861;&#12289;&#38754;&#35797;&#35201;&#28857;&#8230;"
-        oninput="saveNote()"></textarea>
-      <div class="notes-foot">&#33258;&#21160;&#20445;&#23384;&#21040;&#26412;&#26426; &middot; Saved on this device</div>
-    </div>
-  </section>
 
   <!-- Empty state -->
   <div class="empty-state" id="emptyState" style="display:none">
@@ -264,17 +290,20 @@
 </main>
 </div>
 
-<!-- Ask AI: side drawer on desktop, floating sheet on phones -->
+<!-- Dims the page behind the AI sheet / drawer on phones and tablets; tap to close -->
+<div class="ai-scrim" onclick="closeAiPanel()" aria-hidden="true"></div>
+
+<!-- Ask AI: side column on desktop, drawer on tablets, sheet on phones -->
 <aside class="ai-panel" id="aiPanel" aria-label="Ask AI">
   <div class="ai-panel-header">
     <div class="ai-panel-heading">
       <span class="ai-badge"><svg class="ic" aria-hidden="true"><use href="#i-sparkles"/></svg></span>
       <div>
         <div class="ai-panel-title">Ask AI</div>
-        <div class="ai-panel-sub">&#20851;&#20110;&#36825;&#36947;&#39064;&#65292;&#38543;&#20415;&#38382;</div>
+        <div class="ai-panel-sub" id="aiPanelSub">&#20851;&#20110;&#36825;&#36947;&#39064;&#65292;&#38543;&#20415;&#38382;</div>
       </div>
     </div>
-    <button class="ai-close-btn" onclick="closeAiPanel()" aria-label="Close Ask AI" title="Close (Esc)"><svg class="ic" aria-hidden="true"><use href="#i-x"/></svg></button>
+    <button class="ai-close-btn" onclick="closeAiPanel()" aria-label="Close Ask AI" title="Close (Esc)"><kbd class="kbd-hint">Esc</kbd><svg class="ic" aria-hidden="true"><use href="#i-x"/></svg></button>
   </div>
   <div class="ai-response-wrap">
     <div class="ai-response" id="aiResponse"></div>

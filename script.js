@@ -41,10 +41,32 @@ function setReviewBtn(isRev) {
 function setShowBtn(revealed) {
   var btn = document.getElementById('showBtn');
   btn.innerHTML = revealed
-    ? ic('check') + '<span class="btn-label">Answer shown</span>'
-    : ic('eye') + '<span class="btn-label">Reveal answer</span><kbd class="kbd-hint">Space</kbd>';
+    ? ic('check') + '<span class="btn-label"><span class="lbl-long">Answer shown</span><span class="lbl-short">Shown</span></span>'
+    : ic('eye') + '<span class="btn-label"><span class="lbl-long">Reveal answer</span><span class="lbl-short">Reveal</span></span><kbd class="kbd-hint">Space</kbd>';
   btn.disabled = revealed;
   btn.className = 'btn btn-primary' + (revealed ? ' answered' : '');
+  // once the answer is shown, "Next" becomes the primary action
+  document.getElementById('actionBar').classList.toggle('is-revealed', revealed);
+}
+
+// Sidebar "answered" ring (from ib_answered)
+function updateAnswered() {
+  var total = QUESTIONS.length || 160;
+  var done = answered.length;
+  var el = document.getElementById('sAnswered');
+  if (!el) return;
+  el.textContent = done;
+  document.getElementById('sAnsweredTotal').textContent = total;
+  var ring = document.getElementById('answeredRing');
+  var circ = 2 * Math.PI * 15;
+  var frac = Math.min(1, done / total);
+  if (done > 0) frac = Math.max(frac, 0.06);   // a visible sliver, never a dot
+  ring.setAttribute('stroke-dashoffset', String(circ - frac * circ));
+}
+
+// Ask AI open/closed state on <body> (drives layout: drawer push, sidebar fold, scrim)
+function setAiOpenState(open) {
+  document.body.classList.toggle('ai-open', open);
 }
 
 function diffClassOf(d) {
@@ -70,6 +92,27 @@ function updateFilterBadge() {
   if (badge) badge.textContent = n ? String(n) : '';
   var t = document.getElementById('filterToggle');
   if (t) t.setAttribute('aria-label', n ? 'Filters (' + n + ' active)' : 'Filters');
+  var done = document.getElementById('filterDone');
+  if (done) done.textContent = pool.length === 0 ? 'No matches'
+    : 'Show ' + pool.length + (pool.length === 1 ? ' question' : ' questions');
+}
+
+function resetFilters() {
+  ['fCat', 'fDiff', 'fSpecial'].forEach(function(id) { document.getElementById(id).value = 'all'; });
+  applyFilter();
+}
+
+// Topic filter: drop topics with no questions, show counts on the rest
+function buildTopicOptions() {
+  var counts = {};
+  for (var i = 0; i < QUESTIONS.length; i++) counts[QUESTIONS[i].category] = (counts[QUESTIONS[i].category] || 0) + 1;
+  var sel = document.getElementById('fCat');
+  for (var j = sel.options.length - 1; j >= 0; j--) {
+    var o = sel.options[j];
+    if (o.value === 'all') continue;
+    if (!counts[o.value]) { if (sel.value === o.value) sel.value = 'all'; sel.remove(j); }
+    else o.textContent = o.value + ' · ' + counts[o.value];
+  }
 }
 
 function getFilters() {
@@ -141,6 +184,8 @@ function render() {
   // progress bar
   var pct = pool.length > 1 ? (currentIndex / (pool.length - 1)) * 100 : 100;
   document.getElementById('progressFill').style.width = pct + '%';
+  document.getElementById('progressFill').classList.remove('is-zero');
+  updateAnswered();
 
   // badges
   document.getElementById('tagCat').textContent = current.category;
@@ -227,6 +272,7 @@ function showEmpty() {
   document.getElementById('sIdx').textContent   = '0';
   document.getElementById('sTotal').textContent = '0';
   document.getElementById('progressFill').style.width = '0%';
+  document.getElementById('progressFill').classList.add('is-zero');
 
   var msg = '\u6ca1\u6709\u5339\u914d\u7684\u9898\u76ee\uff0c\u8bd5\u8bd5\u6362\u4e2a\u7b5b\u9009\u6761\u4ef6~';
   if (activeTab === 'review' && reviewSubFilter === 'review')
@@ -243,6 +289,7 @@ function showAnswer() {
     answered.push(current.id);
     lsSet('ib_answered', answered);
   }
+  updateAnswered();
 }
 
 function nextQuestion() {
@@ -379,6 +426,8 @@ function toggleAiPanel() {
   panel.classList.add('open');
   fab.classList.add('hidden');
   fab.setAttribute('aria-expanded', 'true');
+  setAiOpenState(true);
+  document.getElementById('aiPanelSub').textContent = current.id.toUpperCase() + ' · ' + current.question;
 
   var chips = AI_CHIPS[current.category] || ['为什么这样？', '能举个例子吗？', '面试怎么答？'];
   document.getElementById('aiChips').innerHTML = chips.map(function(c) {
@@ -400,6 +449,7 @@ function closeAiPanel() {
   var fab = document.getElementById('aiFab');
   if (panel) panel.classList.remove('open');
   if (fab) { fab.classList.remove('hidden'); fab.setAttribute('aria-expanded', 'false'); }
+  setAiOpenState(false);
 }
 
 var aiRequestId = 0;
@@ -487,6 +537,8 @@ function hideDrillUI() {
   document.querySelector('.card-notes').style.display = 'none';
   document.getElementById('answerSection').classList.remove('visible');
   document.getElementById('aiPanel').classList.remove('open');
+  setAiOpenState(false);
+  toggleFilters(false);
   document.querySelector('.toolbar').style.display = 'none';
 }
 
@@ -545,10 +597,6 @@ function renderReviewDashboard() {
   var revCount = reviewList.length;
   var starCount = starred.length;
   var activeCount = reviewSubFilter === 'review' ? revCount : starCount;
-  var reviewedCount = 0;
-  for (var i = 0; i < reviewList.length; i++) {
-    if (answered.indexOf(reviewList[i]) !== -1) reviewedCount++;
-  }
 
   var html = '';
   html += '<header class="view-head">';
@@ -557,19 +605,25 @@ function renderReviewDashboard() {
   html += '<p class="view-sub">把标记过的题再过一遍，记得更牢。</p>';
   html += '</header>';
 
-  // summary tiles
-  html += '<div class="view-grid">';
-  html += '<div class="view-card tone-amber"><div class="view-card-num">' + revCount + '</div><div class="view-card-label">待复习</div></div>';
-  html += '<div class="view-card tone-pink"><div class="view-card-num">' + starCount + '</div><div class="view-card-label">收藏题</div></div>';
-  html += '<div class="view-card tone-green"><div class="view-card-num">' + reviewedCount + '</div><div class="view-card-label">已复习</div></div>';
-  html += '</div>';
-
-  // set picker
+  // set picker (each set card carries its own count)
   html += '<h2 class="view-section-title">选择题集</h2>';
   html += '<div class="review-sub-pills" role="radiogroup" aria-label="题集">';
-  html += reviewPill('review', 'bookmark', '待复习', revCount);
-  html += reviewPill('starred', 'star', '收藏题', starCount);
+  html += reviewPill('review', 'bookmark', '待复习', 'Marked “Review later”', revCount);
+  html += reviewPill('starred', 'star', '收藏题', 'Starred questions', starCount);
   html += '</div>';
+
+  // how much of the selected set you have already seen the answer to
+  var setIds = reviewSubFilter === 'review' ? reviewList : starred;
+  var seen = 0;
+  for (var s = 0; s < setIds.length; s++) if (answered.indexOf(setIds[s]) !== -1) seen++;
+  if (setIds.length > 0) {
+    var seenPct = Math.round((seen / setIds.length) * 100);
+    html += '<div class="review-seen">';
+    html += '<span class="review-seen-label">已看过答案</span>';
+    html += '<span class="progress-bar-track review-seen-bar" aria-hidden="true"><span class="progress-bar-fill tone-green' + (seen === 0 ? ' is-zero' : '') + '" style="width:' + seenPct + '%"></span></span>';
+    html += '<span class="review-seen-num"><b>' + seen + '</b> / ' + setIds.length + '</span>';
+    html += '</div>';
+  }
 
   // start button
   var label = reviewSubFilter === 'review' ? '开始复习' : '开始刷收藏题';
@@ -590,13 +644,14 @@ function renderReviewDashboard() {
   document.getElementById('reviewDashboard').innerHTML = html;
 }
 
-function reviewPill(key, icon, title, count) {
+function reviewPill(key, icon, title, sub, count) {
   var on = reviewSubFilter === key;
   return '<button class="review-pill' + (on ? ' active' : '') + '" role="radio" aria-checked="' + on + '" onclick="setReviewSubFilter(\'' + key + '\')">' +
-    '<span class="review-pill-icon">' + ic(icon) + '</span>' +
-    '<span class="review-pill-text"><span class="review-pill-title">' + title + '</span>' +
-    '<span class="review-pill-count">' + count + ' 题</span></span>' +
-    '<span class="review-pill-radio">' + ic('check') + '</span>' +
+    '<span class="review-pill-top"><span class="review-pill-icon">' + ic(icon) + '</span>' +
+    '<span class="review-pill-radio">' + ic('check') + '</span></span>' +
+    '<span class="review-pill-num">' + count + '<small>题</small></span>' +
+    '<span class="review-pill-title">' + title + '</span>' +
+    '<span class="review-pill-sub">' + sub + '</span>' +
     '</button>';
 }
 
@@ -736,9 +791,11 @@ function renderProgress() {
   var done = answered.length;
   var pct = total > 0 ? Math.round((done / total) * 100) : 0;
 
-  // SVG ring
+  // SVG ring (a small minimum arc so low values read as a sliver, not a dot)
   var r = 42, circ = 2 * Math.PI * r;
-  var offset = circ - (pct / 100) * circ;
+  var frac = total > 0 ? done / total : 0;
+  if (done > 0) frac = Math.max(frac, 0.025);
+  var offset = circ - Math.min(1, frac) * circ;
 
   var html = '';
   html += '<header class="view-head">';
@@ -754,7 +811,7 @@ function renderProgress() {
   html += '<circle class="progress-ring-bg" cx="50" cy="50" r="' + r + '"/>';
   html += '<circle class="progress-ring-fill" cx="50" cy="50" r="' + r + '" stroke-dasharray="' + circ + '" stroke-dashoffset="' + offset + '"/>';
   html += '</svg>';
-  html += '<div class="progress-ring-pct"><span>' + pct + '<small>%</small></span></div>';
+  html += '<div class="progress-ring-pct"><span class="progress-ring-num">' + pct + '<small>%</small></span></div>';
   html += '</div>';
   html += '<div class="progress-hero-text">';
   html += '<div class="progress-ring-label">已完成</div>';
@@ -782,8 +839,8 @@ function renderProgress() {
     html += '<div class="progress-cat-section">';
     html += '<button class="progress-cat-row progress-cat-clickable' + (isOpen ? ' progress-cat-expanded' : '') + '" aria-expanded="' + isOpen + '" aria-controls="catDetail_' + k + '" onclick="toggleCatDetail(\'' + cat.replace(/'/g, "\\'") + '\')">';
     html += '<span class="progress-cat-top"><span class="progress-cat-name">' + esc(cat) + '</span>';
-    html += '<span class="progress-cat-frac"><span><b>' + ca + '</b> / ' + ct + '</span>' + ic('chevron-right', 'progress-cat-chevron' + (isOpen ? ' open' : '')) + '</span></span>';
-    html += '<span class="progress-bar-track" style="display:block"><span class="progress-bar-fill" style="display:block;width:' + cpct + '%"></span></span>';
+    html += '<span class="progress-cat-frac"><span><b>' + ca + '</b> / ' + ct + '</span><span class="progress-cat-pct">' + cpct + '%</span>' + ic('chevron-right', 'progress-cat-chevron' + (isOpen ? ' open' : '')) + '</span></span>';
+    html += '<span class="progress-bar-track" style="display:block"><span class="progress-bar-fill' + (ca === 0 ? ' is-zero' : '') + '" style="display:block;width:' + cpct + '%"></span></span>';
     html += '</button>';
     html += '<div class="progress-cat-detail" id="catDetail_' + k + '"' + (isOpen ? '' : ' style="display:none"') + '>';
     if (isOpen) {
@@ -846,7 +903,7 @@ function buildCatDetailHTML(cat) {
 // ─────────────────────────────────────────────────────────────────────────────
 
 // ── Keyboard shortcuts ───────────────────────────────────────────────────────
-// → / N: next · Space: reveal · S: star · R: review later · Esc: close AI panel
+// → / N: next · Space: reveal · S: star · R: review later · A: ask AI · Esc: close AI panel / filters
 
 document.addEventListener('keydown', function(e) {
   if (e.metaKey || e.ctrlKey || e.altKey) return;
@@ -854,6 +911,7 @@ document.addEventListener('keydown', function(e) {
   if (e.key === 'Escape') {
     if (t && t.blur) t.blur();
     closeAiPanel();
+    toggleFilters(false);
     return;
   }
   if (t && (t.tagName === 'INPUT' || t.tagName === 'TEXTAREA' || t.tagName === 'SELECT')) return;
@@ -864,6 +922,7 @@ document.addEventListener('keydown', function(e) {
   else if (k === ' ') { if (!document.getElementById('showBtn').disabled) showAnswer(); }
   else if (k === 's') { toggleStar(); }
   else if (k === 'r') { toggleReview(); }
+  else if (k === 'a') { toggleAiPanel(); }
   else return;
   e.preventDefault();
 });
@@ -881,6 +940,7 @@ fetch('questions.json')
       it._hay = (it.question + ' ' + it.answer_en + ' ' + it.answer_zh + ' ' + it.explanation_zh).toLowerCase();
     }
     QUESTIONS = data;
+    buildTopicOptions();
     applyFilter();
   })
   .catch(function() {

@@ -3,184 +3,250 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<meta name="color-scheme" content="light dark">
+<meta name="theme-color" content="#F6F4EF" media="(prefers-color-scheme: light)">
+<meta name="theme-color" content="#171614" media="(prefers-color-scheme: dark)">
 <title>IB Drill &#10024;</title>
 <link rel="stylesheet" href="style.css">
 </head>
 <body>
 
+<!-- Icon sprite: one consistent 24px / 1.75 stroke set, referenced via <use> -->
+<svg class="icon-sprite" aria-hidden="true" focusable="false" xmlns="http://www.w3.org/2000/svg">
+  <symbol id="i-search" viewBox="0 0 24 24"><circle cx="11" cy="11" r="7"/><path d="m20 20-3.6-3.6"/></symbol>
+  <symbol id="i-x" viewBox="0 0 24 24"><path d="M18 6 6 18M6 6l12 12"/></symbol>
+  <symbol id="i-sliders" viewBox="0 0 24 24"><path d="M3 6h11M18 6h3M3 12h3M10 12h11M3 18h12M19 18h2"/><circle cx="16" cy="6" r="2"/><circle cx="8" cy="12" r="2"/><circle cx="17" cy="18" r="2"/></symbol>
+  <symbol id="i-shuffle" viewBox="0 0 24 24"><path d="M2 18h1.6c1.3 0 2.5-.6 3.3-1.7l6.2-8.6c.8-1.1 2-1.7 3.3-1.7H21"/><path d="m18 3 3 3-3 3"/><path d="M2 6h1.6c1.4 0 2.7.7 3.4 1.9"/><path d="M21 18h-4.6c-1.3 0-2.6-.7-3.3-1.8l-.5-.7"/><path d="m18 15 3 3-3 3"/></symbol>
+  <symbol id="i-list" viewBox="0 0 24 24"><path d="M10 6h11M10 12h11M10 18h11"/><path d="M4 5l1.5-1v5"/><path d="M3.6 14.2c.3-.6.9-1 1.6-1 .9 0 1.6.6 1.6 1.4 0 1.4-3.2 2.2-3.2 4.4h3.4"/></symbol>
+  <symbol id="i-star" viewBox="0 0 24 24"><path d="m12 3.3 2.6 5.4 5.9.8-4.3 4.1 1 5.9L12 16.7l-5.2 2.8 1-5.9-4.3-4.1 5.9-.8z"/></symbol>
+  <symbol id="i-bookmark" viewBox="0 0 24 24"><path d="M6.5 3.5h11a1 1 0 0 1 1 1v16l-6.5-4.2-6.5 4.2v-16a1 1 0 0 1 1-1z"/></symbol>
+  <symbol id="i-bookmark-check" viewBox="0 0 24 24"><path d="M6.5 3.5h11a1 1 0 0 1 1 1v16l-6.5-4.2-6.5 4.2v-16a1 1 0 0 1 1-1z"/><path d="m9.2 10.2 2 2 3.8-3.8"/></symbol>
+  <symbol id="i-eye" viewBox="0 0 24 24"><path d="M2.5 12S6 5.5 12 5.5 21.5 12 21.5 12 18 18.5 12 18.5 2.5 12 2.5 12z"/><circle cx="12" cy="12" r="3"/></symbol>
+  <symbol id="i-check" viewBox="0 0 24 24"><path d="M20 6.5 9.5 17 4 11.5"/></symbol>
+  <symbol id="i-arrow-right" viewBox="0 0 24 24"><path d="M5 12h14M13 6l6 6-6 6"/></symbol>
+  <symbol id="i-arrow-left" viewBox="0 0 24 24"><path d="M19 12H5M11 18l-6-6 6-6"/></symbol>
+  <symbol id="i-arrow-up" viewBox="0 0 24 24"><path d="M12 19V5M6 11l6-6 6 6"/></symbol>
+  <symbol id="i-sparkles" viewBox="0 0 24 24"><path d="M10 3.5l1.6 4.4a2 2 0 0 0 1.2 1.2L17.2 10.7l-4.4 1.6a2 2 0 0 0-1.2 1.2L10 17.9l-1.6-4.4a2 2 0 0 0-1.2-1.2L2.8 10.7l4.4-1.6a2 2 0 0 0 1.2-1.2z"/><path d="M18.5 3v4M16.5 5h4M18 16.5v3M16.5 18h3"/></symbol>
+  <symbol id="i-chevron-right" viewBox="0 0 24 24"><path d="m9 5.5 6.5 6.5L9 18.5"/></symbol>
+  <symbol id="i-chevron-down" viewBox="0 0 24 24"><path d="m5.5 9 6.5 6.5L18.5 9"/></symbol>
+  <symbol id="i-book" viewBox="0 0 24 24"><path d="M2.5 5h5.5a4 4 0 0 1 4 4v11a3 3 0 0 0-3-3H2.5z"/><path d="M21.5 5H16a4 4 0 0 0-4 4v11a3 3 0 0 1 3-3h6.5z"/></symbol>
+  <symbol id="i-review" viewBox="0 0 24 24"><path d="M3.5 12a8.5 8.5 0 1 0 2.5-6l-2.5 2.5"/><path d="M3.5 3.5v5h5"/><path d="M12 8v4.2l2.8 1.8"/></symbol>
+  <symbol id="i-notebook" viewBox="0 0 24 24"><rect x="4.5" y="3" width="15" height="18" rx="2"/><path d="M8.5 7.5h7M8.5 11.5h7M8.5 15.5h4"/></symbol>
+  <symbol id="i-chart" viewBox="0 0 24 24"><path d="M3.5 3.5v15a2 2 0 0 0 2 2h15"/><path d="M8.5 16.5v-4M13 16.5v-9M17.5 16.5v-6"/></symbol>
+  <symbol id="i-target" viewBox="0 0 24 24"><circle cx="12" cy="12" r="8.5"/><circle cx="12" cy="12" r="4.5"/><circle cx="12" cy="12" r=".8"/></symbol>
+  <symbol id="i-list-checks" viewBox="0 0 24 24"><path d="m3.5 6.5 1.8 1.8L8.5 5M3.5 16.5l1.8 1.8L8.5 15M12 7h8.5M12 12h8.5M12 17h8.5"/></symbol>
+  <symbol id="i-alert" viewBox="0 0 24 24"><path d="M10.3 4.2 2.4 18a2 2 0 0 0 1.7 3h15.8a2 2 0 0 0 1.7-3L13.7 4.2a2 2 0 0 0-3.4 0z"/><path d="M12 9.5v4M12 17h.01"/></symbol>
+  <symbol id="i-bulb" viewBox="0 0 24 24"><path d="M9 18h6M10 21.5h4"/><path d="M12 2.5a6.5 6.5 0 0 0-3.9 11.7c.6.5.9 1.1.9 1.8v.5h6V16c0-.7.3-1.3.9-1.8A6.5 6.5 0 0 0 12 2.5z"/></symbol>
+  <symbol id="i-play" viewBox="0 0 24 24"><path d="M7.5 4.8v14.4a.8.8 0 0 0 1.2.7l11.2-7.2a.8.8 0 0 0 0-1.4L8.7 4.1a.8.8 0 0 0-1.2.7z"/></symbol>
+  <symbol id="i-check-circle" viewBox="0 0 24 24"><circle cx="12" cy="12" r="8.5"/><path d="m8.5 12.2 2.4 2.4 4.6-4.8"/></symbol>
+  <symbol id="i-circle" viewBox="0 0 24 24"><circle cx="12" cy="12" r="8.5"/></symbol>
+  <symbol id="i-search-x" viewBox="0 0 24 24"><circle cx="11" cy="11" r="7"/><path d="m20 20-3.6-3.6M8.8 8.8l4.4 4.4M13.2 8.8l-4.4 4.4"/></symbol>
+  <symbol id="i-keyboard" viewBox="0 0 24 24"><rect x="2.5" y="6" width="19" height="12" rx="2"/><path d="M6.5 10h.01M10 10h.01M14 10h.01M17.5 10h.01M7.5 14h9"/></symbol>
+  <symbol id="i-pen" viewBox="0 0 24 24"><path d="M12 20.5h8.5"/><path d="M16.4 3.6a2.1 2.1 0 0 1 3 3L7.5 18.5l-4 1 1-4z"/></symbol>
+</svg>
+
 <!-- Welcome Screen -->
 <div class="welcome-screen" id="welcomeScreen">
-  <div class="wlc-title">IB Drill</div>
-  <div class="wlc-sub">You will always be a free summer &#10024;</div>
-  <button class="wlc-btn" onclick="startApp()">Start &#8594;</button>
+  <div class="wlc-inner">
+    <div class="wlc-mark" aria-hidden="true">IB</div>
+    <p class="wlc-eyebrow">Investment Banking Technicals</p>
+    <h1 class="wlc-title">IB Drill</h1>
+    <p class="wlc-sub">You will always be a free summer &#10024;</p>
+    <ul class="wlc-features">
+      <li><svg class="ic" aria-hidden="true"><use href="#i-book"/></svg><span><b>Bilingual drills</b>English &middot; &#20013;&#25991;&#21452;&#35821;&#31572;&#26696;</span></li>
+      <li><svg class="ic" aria-hidden="true"><use href="#i-sparkles"/></svg><span><b>Ask AI</b>&#21345;&#20303;&#20102;&#38543;&#26102;&#36861;&#38382;</span></li>
+      <li><svg class="ic" aria-hidden="true"><use href="#i-review"/></svg><span><b>Review &amp; notes</b>&#25910;&#34255; &middot; &#22797;&#20064; &middot; &#31508;&#35760;</span></li>
+    </ul>
+    <button class="wlc-btn" onclick="startApp()">Start practicing<svg class="ic" aria-hidden="true"><use href="#i-arrow-right"/></svg></button>
+  </div>
 </div>
 
 <!-- App (hidden until Start) -->
 <div class="app-wrap" id="appWrap">
 
-<!-- Header -->
-<div class="header">
-  <div class="header-inner">
-    <div class="header-row1">
-      <div class="brand">
-        <div class="brand-mark">&#128218;</div>
-        <div class="brand-text">
-          <div class="brand-title">IB Drill</div>
-          <div class="brand-sub">You will always be a free summer &#10024;</div>
-        </div>
-      </div>
-      <div class="header-stats">
-        <div class="hstat">
-          <span class="hstat-num" id="sIdx">-</span>
-          <span style="color:var(--text3)">/</span>
-          <span class="hstat-num" id="sTotal">-</span>
-        </div>
-        <span class="hstat-divider">&#183;</span>
-        <div class="hstat">&#9733; <span class="hstat-num" id="sStar">0</span></div>
-        <span class="hstat-divider">&#183;</span>
-        <div class="hstat">&#9711; <span class="hstat-num" id="sRev">0</span></div>
-        <span class="mode-pill" id="statMode">SHFL</span>
+<!-- Side: top bar + nav on mobile, left sidebar on desktop -->
+<div class="side">
+  <div class="topbar header">
+    <div class="brand">
+      <div class="brand-mark" aria-hidden="true">IB</div>
+      <div class="brand-text">
+        <div class="brand-title">IB Drill</div>
+        <div class="brand-sub">You will always be a free summer &#10024;</div>
       </div>
     </div>
-    <div class="progress-bar-wrap">
-      <div class="progress-bar-fill" id="progressFill" style="width:0%"></div>
+    <div class="session header-stats" aria-label="Session">
+      <div class="session-label">This session</div>
+      <div class="session-count" title="Current question / questions in set">
+        <span class="hstat-num" id="sIdx">-</span><span class="session-sep">/</span><span class="hstat-num session-total" id="sTotal">-</span>
+      </div>
+      <div class="progress-bar-wrap" aria-hidden="true">
+        <div class="progress-bar-fill" id="progressFill" style="width:0%"></div>
+      </div>
+      <div class="session-meta">
+        <span class="hstat" title="Starred"><svg class="ic" aria-hidden="true"><use href="#i-star"/></svg><span class="hstat-num" id="sStar">0</span><span class="sr-only">starred</span></span>
+        <span class="hstat" title="Review later"><svg class="ic" aria-hidden="true"><use href="#i-bookmark"/></svg><span class="hstat-num" id="sRev">0</span><span class="sr-only">to review</span></span>
+        <span class="mode-pill" id="statMode">Shuffle</span>
+      </div>
     </div>
+  </div>
+
+  <nav class="tab-bar" id="tabBar" aria-label="Main">
+    <button class="tab-item active" data-tab="practice" onclick="switchTab('practice')">
+      <span class="tab-icon"><svg class="ic" aria-hidden="true"><use href="#i-book"/></svg></span><span class="tab-label">Practice</span>
+    </button>
+    <button class="tab-item" data-tab="review" onclick="switchTab('review')">
+      <span class="tab-icon"><svg class="ic" aria-hidden="true"><use href="#i-review"/></svg></span><span class="tab-label">Review</span>
+    </button>
+    <button class="tab-item" data-tab="notes" onclick="switchTab('notes')">
+      <span class="tab-icon"><svg class="ic" aria-hidden="true"><use href="#i-notebook"/></svg></span><span class="tab-label">Notes</span>
+    </button>
+    <button class="tab-item" data-tab="progress" onclick="switchTab('progress')">
+      <span class="tab-icon"><svg class="ic" aria-hidden="true"><use href="#i-chart"/></svg></span><span class="tab-label">Progress</span>
+    </button>
+  </nav>
+
+  <div class="kbd-legend" aria-label="Keyboard shortcuts">
+    <div class="kbd-legend-title"><svg class="ic" aria-hidden="true"><use href="#i-keyboard"/></svg>Shortcuts</div>
+    <dl>
+      <div><dt><kbd>&#8594;</kbd><kbd>N</kbd></dt><dd>Next</dd></div>
+      <div><dt><kbd>Space</kbd></dt><dd>Reveal</dd></div>
+      <div><dt><kbd>S</kbd></dt><dd>Star</dd></div>
+      <div><dt><kbd>R</kbd></dt><dd>Review later</dd></div>
+      <div><dt><kbd>Esc</kbd></dt><dd>Close AI</dd></div>
+    </dl>
   </div>
 </div>
 
-<!-- Toolbar -->
-<div class="toolbar">
-  <div class="toolbar-inner">
-    <div class="search-row">
-      <span class="search-icon-el">&#128269;</span>
-      <input type="text" id="searchInput" placeholder="&#25628;&#32034;&#39064;&#30446;&#12289;&#31572;&#26696;..." oninput="onSearchInput()">
-      <button class="search-clear" id="searchClear" onclick="document.getElementById('searchInput').value='';applyFilter();">&#215;</button>
-    </div>
-    <div class="filter-row">
-      <select id="fCat" class="filter-select" onchange="applyFilter()">
-        <option value="all">&#128196; All Topics</option>
-        <option value="Accounting">Accounting</option>
-        <option value="Valuation">Valuation</option>
-        <option value="M&A">M&amp;A</option>
-        <option value="LBO">LBO</option>
-        <option value="FIG">FIG</option>
-        <option value="ECM / DCM / LevFin">ECM / DCM / LevFin</option>
-        <option value="Private Companies">Private Companies</option>
-        <option value="Restructuring">Restructuring</option>
-      </select>
-      <select id="fDiff" class="filter-select" onchange="applyFilter()">
-        <option value="all">&#127775; All Levels</option>
-        <option value="Easy">Easy</option>
-        <option value="Medium">Medium</option>
-        <option value="Hard">Hard</option>
-      </select>
-      <select id="fSpecial" class="filter-select" onchange="applyFilter()">
-        <option value="all">&#128218; All</option>
-        <option value="starred">&#9733; Starred</option>
-        <option value="review">&#128204; Review</option>
-      </select>
-    </div>
-    <div class="mode-row">
-      <button class="mode-btn mode-active" id="modeShuffleBtn" onclick="setMode('shuffle')">&#8652; Shuffle</button>
-      <button class="mode-btn" id="modeSeqBtn" onclick="setMode('sequential')">&#8594; Sequential</button>
+<div class="content">
+<main class="main">
+
+  <!-- Toolbar: search + filters + order, one compact row -->
+  <div class="toolbar" id="toolbar">
+    <div class="toolbar-inner">
+      <div class="search-row">
+        <svg class="ic search-icon-el" aria-hidden="true"><use href="#i-search"/></svg>
+        <input type="text" id="searchInput" aria-label="Search questions and answers" placeholder="&#25628;&#32034;&#39064;&#30446;&#12289;&#31572;&#26696;&#8230;" autocomplete="off" oninput="onSearchInput()">
+        <button class="search-clear" id="searchClear" aria-label="Clear search" onclick="document.getElementById('searchInput').value='';applyFilter();"><svg class="ic" aria-hidden="true"><use href="#i-x"/></svg></button>
+      </div>
+      <button class="tool-btn filter-toggle" id="filterToggle" aria-expanded="false" aria-controls="filterRow" onclick="toggleFilters()">
+        <svg class="ic" aria-hidden="true"><use href="#i-sliders"/></svg><span class="tool-btn-label">Filter</span><span class="filter-count" id="filterCount" aria-hidden="true"></span>
+      </button>
+      <div class="filter-row" id="filterRow">
+        <select id="fCat" class="filter-select" aria-label="Topic" onchange="applyFilter()">
+          <option value="all">All topics</option>
+          <option value="Accounting">Accounting</option>
+          <option value="Valuation">Valuation</option>
+          <option value="M&A">M&amp;A</option>
+          <option value="LBO">LBO</option>
+          <option value="FIG">FIG</option>
+          <option value="ECM / DCM / LevFin">ECM / DCM / LevFin</option>
+          <option value="Private Companies">Private Companies</option>
+          <option value="Restructuring">Restructuring</option>
+        </select>
+        <select id="fDiff" class="filter-select" aria-label="Difficulty" onchange="applyFilter()">
+          <option value="all">All levels</option>
+          <option value="Easy">Easy</option>
+          <option value="Medium">Medium</option>
+          <option value="Hard">Hard</option>
+        </select>
+        <select id="fSpecial" class="filter-select" aria-label="Collection" onchange="applyFilter()">
+          <option value="all">All questions</option>
+          <option value="starred">Starred</option>
+          <option value="review">Review later</option>
+        </select>
+      </div>
+      <div class="mode-row" role="group" aria-label="Question order">
+        <button class="mode-btn mode-active" id="modeShuffleBtn" onclick="setMode('shuffle')" aria-pressed="true" aria-label="Shuffle order" title="Shuffle"><svg class="ic" aria-hidden="true"><use href="#i-shuffle"/></svg></button>
+        <button class="mode-btn" id="modeSeqBtn" onclick="setMode('sequential')" aria-pressed="false" aria-label="Sequential order" title="Sequential"><svg class="ic" aria-hidden="true"><use href="#i-list"/></svg></button>
+      </div>
     </div>
   </div>
-</div>
 
-<!-- Main -->
-<div class="main">
-
-  <!-- Question card -->
-  <div class="q-card" id="qPanel">
-    <div class="q-card-header">
+  <!-- The page: question, then answer, then actions -->
+  <article class="q-card" id="qPanel" aria-labelledby="qText">
+    <header class="q-card-header">
       <div class="q-badges">
         <span class="badge badge-cat" id="tagCat"></span>
         <span class="badge" id="tagDiff"></span>
         <span class="q-id-text" id="qId"></span>
       </div>
-      <button class="star-btn" id="starBtn" onclick="toggleStar()">&#9734;</button>
-    </div>
+      <div class="q-actions">
+        <button class="ai-fab" id="aiFab" onclick="toggleAiPanel()" aria-label="Ask AI about this question" aria-controls="aiPanel" aria-expanded="false">
+          <svg class="ic" aria-hidden="true"><use href="#i-sparkles"/></svg><span class="ai-fab-label">Ask AI</span>
+        </button>
+        <button class="star-btn" id="starBtn" onclick="toggleStar()" aria-label="Star this question" aria-pressed="false" title="Star (S)">
+          <svg class="ic" aria-hidden="true"><use href="#i-star"/></svg>
+        </button>
+      </div>
+    </header>
+
     <div class="q-body">
-      <div class="q-text" id="qText"></div>
+      <h1 class="q-text" id="qText"></h1>
     </div>
-  </div>
 
-  <!-- AI Panel (floating overlay) -->
-  <div class="ai-panel" id="aiPanel">
-    <div class="ai-panel-header">
-      <span class="ai-panel-title">&#10024; Ask AI</span>
-      <button class="ai-close-btn" onclick="closeAiPanel()">&#10005;</button>
-    </div>
-    <div class="ai-chips" id="aiChips"></div>
-    <div class="ai-input-row">
-      <input id="aiInput" class="ai-input" placeholder="&#36755;&#20837;&#20320;&#30340;&#38382;&#39064;&#8230;" onkeydown="if(event.key==='Enter')submitAiQuestion()">
-      <button class="ai-send-btn" onclick="submitAiQuestion()">&#8593;</button>
-    </div>
-    <div class="ai-response-wrap">
-      <div class="ai-response" id="aiResponse"></div>
-    </div>
-  </div>
-
-  <!-- My Notes accordion (always visible) -->
-  <div class="answer-card card-notes">
-    <div class="notes-toggle-row" onclick="toggleNotes()">
-      <div class="notes-toggle-left">
-        <span class="notes-chevron" id="notesChevron">&#9658;</span>
-        <span class="answer-label label-notes">&#128221; My Notes</span>
+    <div class="answer-section" id="answerSection">
+      <div class="answer-grid">
+        <section class="answer-card card-en" lang="en">
+          <div class="answer-card-header"><span class="answer-label label-en">English</span></div>
+          <div class="answer-body" id="ansEn"></div>
+        </section>
+        <section class="answer-card card-zh" lang="zh">
+          <div class="answer-card-header"><span class="answer-label label-zh">&#20013;&#25991;</span></div>
+          <div class="answer-body" id="ansZh"></div>
+        </section>
       </div>
-      <span class="notes-hint" id="notesHint">&#28857;&#20987;&#35760;&#24405;&#31508;&#35760;</span>
+
+      <div class="answer-card card-exp">
+        <button class="exp-toggle-row" id="expToggle" onclick="toggleExp()" aria-expanded="false" aria-controls="expBody">
+          <span class="exp-toggle-left">
+            <span class="exp-icon"><svg class="ic" aria-hidden="true"><use href="#i-bulb"/></svg></span>
+            <span class="answer-label label-exp">&#35299;&#26512;</span>
+            <span class="exp-sub">&#32771;&#28857; &middot; &#22238;&#31572;&#36923;&#36753; &middot; &#26131;&#38169;&#28857;</span>
+          </span>
+          <span class="exp-hint"><svg class="ic exp-chevron" id="expChevron" aria-hidden="true"><use href="#i-chevron-down"/></svg></span>
+        </button>
+        <div class="exp-body" id="expBody"></div>
+      </div>
     </div>
+
+    <!-- Action bar: floating dock on phones, sticky footer of the page on larger screens -->
+    <div class="action-bar" id="actionBar">
+      <button class="btn btn-outline" id="btnReview" onclick="toggleReview()" aria-pressed="false" title="Review later (R)">
+        <svg class="ic" aria-hidden="true"><use href="#i-bookmark"/></svg><span class="btn-label">Review later</span>
+      </button>
+      <button class="btn btn-primary" id="showBtn" onclick="showAnswer()">
+        <svg class="ic" aria-hidden="true"><use href="#i-eye"/></svg><span class="btn-label">Reveal answer</span><kbd class="kbd-hint">Space</kbd>
+      </button>
+      <button class="btn btn-next" id="nextBtn" onclick="nextQuestion()" title="Next (&#8594; or N)">
+        <span class="btn-label">Next</span><svg class="ic" aria-hidden="true"><use href="#i-arrow-right"/></svg><kbd class="kbd-hint">N</kbd>
+      </button>
+    </div>
+  </article>
+
+  <!-- My Notes accordion -->
+  <section class="answer-card card-notes">
+    <button class="notes-toggle-row" onclick="toggleNotes()" aria-controls="notesBody">
+      <span class="notes-toggle-left">
+        <svg class="ic" aria-hidden="true"><use href="#i-pen"/></svg>
+        <span class="answer-label label-notes">My notes</span>
+      </span>
+      <span class="notes-toggle-right">
+        <span class="notes-hint" id="notesHint">&#28857;&#20987;&#35760;&#24405;&#31508;&#35760;</span>
+        <svg class="ic notes-chevron" id="notesChevron" aria-hidden="true"><use href="#i-chevron-down"/></svg>
+      </span>
+    </button>
     <div class="notes-body" id="notesBody">
-      <textarea id="notesInput" class="notes-textarea"
-        placeholder="&#35760;&#24405;&#20320;&#30340;&#29702;&#35299;&#12289;&#35760;&#24544;&#26041;&#27861;&#12289;&#38754;&#35797;&#35201;&#28857;&#8230;"
+      <textarea id="notesInput" class="notes-textarea" aria-label="My notes for this question"
+        placeholder="&#35760;&#24405;&#20320;&#30340;&#29702;&#35299;&#12289;&#35760;&#24518;&#26041;&#27861;&#12289;&#38754;&#35797;&#35201;&#28857;&#8230;"
         oninput="saveNote()"></textarea>
+      <div class="notes-foot">&#33258;&#21160;&#20445;&#23384;&#21040;&#26412;&#26426; &middot; Saved on this device</div>
     </div>
-  </div>
-
-  <!-- Action bar -->
-  <div class="action-bar" id="actionBar">
-    <button class="btn btn-primary" id="showBtn" onclick="showAnswer()">&#10024; Reveal Answer</button>
-    <button class="btn btn-outline" id="btnReview" onclick="toggleReview()">&#128204; Review Later</button>
-    <button class="btn btn-next" onclick="nextQuestion()">Next &#8594;</button>
-  </div>
-
-  <!-- Answer section -->
-  <div class="answer-section" id="answerSection">
-
-    <!-- English Answer -->
-    <div class="answer-card card-en">
-      <div class="answer-card-header">
-        <span class="answer-label label-en">&#127468;&#127463; English Answer</span>
-      </div>
-      <div class="answer-body" id="ansEn"></div>
-    </div>
-
-    <!-- Chinese Answer -->
-    <div class="answer-card card-zh">
-      <div class="answer-card-header">
-        <span class="answer-label label-zh">&#127464;&#127475; &#20013;&#25991;&#31572;&#26696;</span>
-      </div>
-      <div class="answer-body" id="ansZh"></div>
-    </div>
-
-    <!-- Explanation accordion -->
-    <div class="answer-card card-exp">
-      <div class="exp-toggle-row" onclick="toggleExp()">
-        <div class="exp-toggle-left">
-          <span class="exp-chevron" id="expChevron">&#9658;</span>
-          <span class="answer-label label-exp">&#128161; &#35299;&#26512;</span>
-        </div>
-        <span class="exp-hint">&#28857;&#20987;&#23637;&#24320;</span>
-      </div>
-      <div class="exp-body" id="expBody"></div>
-    </div>
-
-  </div>
+  </section>
 
   <!-- Empty state -->
-  <div class="empty-state" id="emptyState">
-    <div class="empty-icon">&#128270;</div>
-    <p>&#27809;&#26377;&#21305;&#37197;&#30340;&#39064;&#30446;&#65292;&#35835;&#35797;&#25442;&#20010;&#31807;&#36873;&#20915;~</p>
+  <div class="empty-state" id="emptyState" style="display:none">
+    <div class="empty-icon"><svg class="ic" aria-hidden="true"><use href="#i-search-x"/></svg></div>
+    <p>&#27809;&#26377;&#21305;&#37197;&#30340;&#39064;&#30446;&#65292;&#35797;&#35797;&#25442;&#20010;&#31579;&#36873;&#26465;&#20214;~</p>
   </div>
 
   <!-- Footer hint -->
@@ -195,26 +261,30 @@
   <!-- Progress View -->
   <div class="progress-view" id="progressView" style="display:none"></div>
 
+</main>
 </div>
 
-<!-- AI FAB -->
-<button class="ai-fab" id="aiFab" onclick="toggleAiPanel()">&#10024;</button>
-
-<!-- Tab Bar -->
-<nav class="tab-bar" id="tabBar">
-  <button class="tab-item active" data-tab="practice" onclick="switchTab('practice')">
-    <span class="tab-icon">&#128221;</span><span class="tab-label">Practice</span>
-  </button>
-  <button class="tab-item" data-tab="review" onclick="switchTab('review')">
-    <span class="tab-icon">&#128260;</span><span class="tab-label">Review</span>
-  </button>
-  <button class="tab-item" data-tab="notes" onclick="switchTab('notes')">
-    <span class="tab-icon">&#128210;</span><span class="tab-label">Notes</span>
-  </button>
-  <button class="tab-item" data-tab="progress" onclick="switchTab('progress')">
-    <span class="tab-icon">&#128202;</span><span class="tab-label">Progress</span>
-  </button>
-</nav>
+<!-- Ask AI: side drawer on desktop, floating sheet on phones -->
+<aside class="ai-panel" id="aiPanel" aria-label="Ask AI">
+  <div class="ai-panel-header">
+    <div class="ai-panel-heading">
+      <span class="ai-badge"><svg class="ic" aria-hidden="true"><use href="#i-sparkles"/></svg></span>
+      <div>
+        <div class="ai-panel-title">Ask AI</div>
+        <div class="ai-panel-sub">&#20851;&#20110;&#36825;&#36947;&#39064;&#65292;&#38543;&#20415;&#38382;</div>
+      </div>
+    </div>
+    <button class="ai-close-btn" onclick="closeAiPanel()" aria-label="Close Ask AI" title="Close (Esc)"><svg class="ic" aria-hidden="true"><use href="#i-x"/></svg></button>
+  </div>
+  <div class="ai-response-wrap">
+    <div class="ai-response" id="aiResponse"></div>
+  </div>
+  <div class="ai-chips" id="aiChips"></div>
+  <div class="ai-input-row">
+    <input id="aiInput" class="ai-input" aria-label="Your question" placeholder="&#36755;&#20837;&#20320;&#30340;&#38382;&#39064;&#8230;" autocomplete="off" onkeydown="if(event.key==='Enter')submitAiQuestion()">
+    <button class="ai-send-btn" onclick="submitAiQuestion()" aria-label="Send question"><svg class="ic" aria-hidden="true"><use href="#i-arrow-up"/></svg></button>
+  </div>
+</aside>
 
 </div><!-- /app-wrap -->
 

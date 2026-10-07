@@ -1,6 +1,9 @@
 var QUESTIONS = [];
 
-function lsGet(k) { try { return JSON.parse(localStorage.getItem(k)) || []; } catch(e) { return []; } }
+// id lists only: anything that isn't an array (e.g. a hand-edited '{}') reads as empty instead of crashing later
+function lsGet(k) {
+  try { var v = JSON.parse(localStorage.getItem(k)); return Array.isArray(v) ? v : []; } catch(e) { return []; }
+}
 function lsSet(k, v) { try { localStorage.setItem(k, JSON.stringify(v)); } catch(e) {} }
 
 var pool = [];
@@ -13,6 +16,8 @@ var activeTab  = 'practice';
 var answered   = lsGet('ib_answered');
 var reviewMode = 'dashboard';
 var reviewSubFilter = 'review';
+var loadFailed = false;      // questions.json could not be loaded
+var seenIds = {};            // questions shown this session (drives the Shuffle-mode session counter)
 var CATEGORIES = ['Accounting', 'Valuation', 'M&A', 'LBO', 'FIG', 'ECM / DCM / LevFin', 'Private Companies', 'Restructuring'];
 
 // ── UI helpers (markup only) ────────────────────────────────────────────────
@@ -22,18 +27,52 @@ function ic(name, cls) {
 }
 var REDUCE_MOTION = !!(window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches);
 
+// ── Focus management ────────────────────────────────────────────────────────
+// Remember the control the user last focused by mouse/touch. A clicked button keeps the Space shortcut
+// (reveal); a button reached with the keyboard gets Space's native activation (see keydown handler).
+var pointerFocus = null;
+document.addEventListener('pointerdown', function(e) {
+  var t = e.target;
+  pointerFocus = t && t.closest ? t.closest('button, a, input, select, textarea, [tabindex]') : null;
+}, true);
+document.addEventListener('focusin', function(e) { if (e.target !== pointerFocus) pointerFocus = null; });
+
+// Is focus inside `container` (which is about to be hidden or re-rendered)? Returns {pointer} or null.
+function focusIn(container) {
+  var a = document.activeElement;
+  if (!container || !a || a === document.body || !container.contains(a)) return null;
+  return { pointer: a === pointerFocus };
+}
+// Hand focus to `el` instead of letting it fall back to <body>; keep the way it got there (mouse vs keyboard)
+function moveFocus(el, byPointer) {
+  if (!el) return;
+  el.focus({ preventScroll: true });
+  if (byPointer) pointerFocus = el;
+}
+
+// Polite screen-reader announcements (search results, AI status/replies)
+var announceTimer = null;
+function announce(msg) {
+  var el = document.getElementById('srStatus');
+  if (!el) return;
+  clearTimeout(announceTimer);
+  el.textContent = '';
+  announceTimer = setTimeout(function() { el.textContent = msg; }, 60);   // cleared first so a repeat is re-read
+}
+
+function questionCount(n) { return n + (n === 1 ? ' question' : ' questions'); }
+
 function setStarBtn(isStarred) {
   var sb = document.getElementById('starBtn');
   sb.innerHTML = ic('star');
   sb.className = 'star-btn' + (isStarred ? ' starred' : '');
-  sb.setAttribute('aria-pressed', isStarred ? 'true' : 'false');
-  sb.setAttribute('aria-label', isStarred ? 'Unstar this question' : 'Star this question');
+  sb.setAttribute('aria-pressed', isStarred ? 'true' : 'false');   // fixed name, the state is in aria-pressed
 }
 
 function setReviewBtn(isRev) {
   var rb = document.getElementById('btnReview');
   rb.innerHTML = ic(isRev ? 'bookmark-check' : 'bookmark') +
-    '<span class="btn-label">' + (isRev ? 'In review' : 'Review later') + '</span><kbd class="kbd-hint">R</kbd>';
+    '<span class="btn-label">' + (isRev ? 'In review' : 'Review later') + '</span><kbd class="kbd-hint" aria-hidden="true">R</kbd>';
   rb.className = 'btn btn-outline' + (isRev ? ' active-review' : '');
   rb.setAttribute('aria-pressed', isRev ? 'true' : 'false');
 }
@@ -42,7 +81,7 @@ function setShowBtn(revealed) {
   var btn = document.getElementById('showBtn');
   btn.innerHTML = revealed
     ? ic('check') + '<span class="btn-label"><span class="lbl-long">Answer shown</span><span class="lbl-short">Shown</span></span>'
-    : ic('eye') + '<span class="btn-label"><span class="lbl-long">Reveal answer</span><span class="lbl-short">Reveal</span></span><kbd class="kbd-hint">Space</kbd>';
+    : ic('eye') + '<span class="btn-label"><span class="lbl-long">Reveal answer</span><span class="lbl-short">Reveal</span></span><kbd class="kbd-hint" aria-hidden="true">Space</kbd>';
   btn.disabled = revealed;
   btn.className = 'btn btn-primary' + (revealed ? ' answered' : '');
   // once the answer is shown, "Next" becomes the primary action
@@ -67,7 +106,36 @@ function updateAnswered() {
 // Ask AI open/closed state on <body> (drives layout: drawer push, sidebar fold, scrim)
 function setAiOpenState(open) {
   document.body.classList.toggle('ai-open', open);
+  // ≥1280 the filters sit inline unless AI is open; a panel opened meanwhile must not pop open again later
+  var ft = document.getElementById('filterToggle');
+  if (ft && ft.offsetParent === null && ft.getAttribute('aria-expanded') === 'true') toggleFilters(false);
+  syncAiModal();
 }
+
+// Below 1024px the AI panel covers the page (drawer / sheet over a scrim): make it a dialog and take the
+// covered page out of reach. Tall phones keep the dock and the bottom nav usable (they sit above the scrim).
+var MQ_DESKTOP = window.matchMedia('(min-width: 1024px)');
+var MQ_PHONE_DOCK = window.matchMedia('(max-width: 767px) and (min-height: 501px)');
+function syncAiModal() {
+  var panel = document.getElementById('aiPanel');
+  var els = document.querySelectorAll('.side, .topbar, .content, .main > *, #qPanel > *'), i;
+  for (i = 0; i < els.length; i++) els[i].removeAttribute('inert');
+  if (!panel.classList.contains('open') || MQ_DESKTOP.matches) {
+    panel.removeAttribute('role');
+    panel.removeAttribute('aria-modal');
+    return;
+  }
+  var dockFree = MQ_PHONE_DOCK.matches;
+  panel.setAttribute('role', 'dialog');
+  if (dockFree) panel.removeAttribute('aria-modal'); else panel.setAttribute('aria-modal', 'true');
+  els = document.querySelectorAll(dockFree
+    ? '.topbar, .main > :not(#qPanel), #qPanel > :not(.action-bar)'
+    : '.side, .content');
+  for (i = 0; i < els.length; i++) els[i].setAttribute('inert', '');
+}
+[MQ_DESKTOP, MQ_PHONE_DOCK].forEach(function(m) {
+  if (m.addEventListener) m.addEventListener('change', syncAiModal); else if (m.addListener) m.addListener(syncAiModal);
+});
 
 function diffClassOf(d) {
   return d === 'Easy' ? 'badge-easy' : d === 'Medium' ? 'badge-med' : 'badge-hard';
@@ -77,8 +145,12 @@ function diffClassOf(d) {
 function toggleFilters(force) {
   var tb = document.querySelector('.toolbar');
   var open = typeof force === 'boolean' ? force : !tb.classList.contains('filters-open');
+  var toggle = document.getElementById('filterToggle');
+  var f = open ? null : focusIn(document.getElementById('filterRow'));
   tb.classList.toggle('filters-open', open);
-  document.getElementById('filterToggle').setAttribute('aria-expanded', open ? 'true' : 'false');
+  toggle.setAttribute('aria-expanded', open ? 'true' : 'false');
+  // closing from inside the panel ("Show N questions", Esc in a select): back to the Filter button
+  if (f && toggle.offsetParent !== null) moveFocus(toggle, f.pointer);
 }
 
 function updateFilterBadge() {
@@ -93,13 +165,34 @@ function updateFilterBadge() {
   var t = document.getElementById('filterToggle');
   if (t) t.setAttribute('aria-label', n ? 'Filters (' + n + ' active)' : 'Filters');
   var done = document.getElementById('filterDone');
-  if (done) done.textContent = pool.length === 0 ? 'No matches'
-    : 'Show ' + pool.length + (pool.length === 1 ? ' question' : ' questions');
+  if (done) done.textContent = pool.length === 0 ? 'No matches' : 'Show ' + questionCount(pool.length);
 }
 
 function resetFilters() {
-  ['fCat', 'fDiff', 'fSpecial'].forEach(function(id) { document.getElementById(id).value = 'all'; });
-  applyFilter();
+  ['fCat', 'fDiff', 'fSpecial'].forEach(function(id) {
+    var el = document.getElementById(id);
+    if (el.style.display !== 'none') el.value = 'all';   // the review drill hides Collection: leave it alone
+  });
+  applyFilter(true);
+}
+
+// Practice's own filters + search, set aside while a review drill runs (a drill starts on the whole set)
+var savedPracticeFilters = null;
+function stashPracticeFilters() {
+  if (savedPracticeFilters) return;
+  var cat = document.getElementById('fCat'), diff = document.getElementById('fDiff');
+  var search = document.getElementById('searchInput');
+  savedPracticeFilters = { cat: cat.value, diff: diff.value, special: document.getElementById('fSpecial').value, q: search.value };
+  cat.value = 'all'; diff.value = 'all'; search.value = '';
+}
+function restorePracticeFilters() {
+  var s = savedPracticeFilters;
+  if (!s) return;
+  savedPracticeFilters = null;
+  document.getElementById('fCat').value = s.cat;
+  document.getElementById('fDiff').value = s.diff;
+  document.getElementById('fSpecial').value = s.special;
+  document.getElementById('searchInput').value = s.q;
 }
 
 // Topic filter: drop topics with no questions, show counts on the rest
@@ -123,12 +216,17 @@ function getFilters() {
   };
 }
 
-function applyFilter() {
+// Is the question card the current view? (Practice, or a review drill)
+function inDrillView() {
+  return activeTab === 'practice' || (activeTab === 'review' && reviewMode === 'drilling');
+}
+
+// Questions matching the current view's filters + search
+function buildPool() {
   var f = getFilters();
   if (activeTab === 'review') f.special = reviewSubFilter;
   var q = (document.getElementById('searchInput').value || '').trim().toLowerCase();
-
-  pool = QUESTIONS.filter(function(item) {
+  return QUESTIONS.filter(function(item) {
     if (f.cat !== 'all' && item.category !== f.cat) return false;
     if (f.diff !== 'all' && item.difficulty !== f.diff) return false;
     if (f.special === 'starred' && starred.indexOf(item.id) === -1) return false;
@@ -136,26 +234,30 @@ function applyFilter() {
     if (q && item._hay.indexOf(q) === -1) return false;
     return true;
   });
+}
 
-  ['fCat','fDiff','fSpecial'].forEach(function(id) {
-    var el = document.getElementById(id);
-    if (el.value !== 'all') el.classList.add('active'); else el.classList.remove('active');
-  });
-
+// Toolbar state that mirrors the filters: active selects, count badge, clear-search button
+function syncFilterUI() {
   updateFilterBadge();
+  var q = (document.getElementById('searchInput').value || '').trim();
+  document.getElementById('searchClear').className = 'search-clear' + (q ? ' visible' : '');
+}
 
-  var sc = document.getElementById('searchClear');
-  sc.className = 'search-clear' + (q ? ' visible' : '');
+function applyFilter(announceResult) {
+  if (!inDrillView()) return;   // e.g. a late search debounce must not paint the card over another view
+  pool = buildPool();
+  syncFilterUI();
 
-  if (pool.length === 0) { showEmpty(); return; }
-
-  if (studyMode === 'sequential') {
-    currentIndex = 0;
+  if (pool.length === 0) {
+    showEmpty();
   } else {
-    currentIndex = randomIndex();
+    currentIndex = studyMode === 'sequential' ? 0 : randomIndex();
+    current = pool[currentIndex];
+    render();
   }
-  current = pool[currentIndex];
-  render();
+  if (announceResult) {
+    announce(pool.length ? questionCount(pool.length) : document.querySelector('#emptyState p').textContent);
+  }
 }
 
 // Random index that avoids repeating the question currently on screen
@@ -169,22 +271,45 @@ function randomIndex() {
 var searchTimer = null;
 function onSearchInput() {
   clearTimeout(searchTimer);
-  searchTimer = setTimeout(applyFilter, 150);
+  searchTimer = setTimeout(function() { applyFilter(true); }, 150);
+}
+
+function clearSearch() {
+  var f = focusIn(document.getElementById('searchClear'));
+  document.getElementById('searchInput').value = '';
+  applyFilter(true);
+  // the × hides itself: keyboard users stay in the search field (no forced soft keyboard after a tap)
+  if (f && !f.pointer) document.getElementById('searchInput').focus();
+}
+
+// Session counter: Sequential shows the position in the set; Shuffle shows how many of the set you've seen
+function renderStats() {
+  var seq = studyMode === 'sequential';
+  var n = currentIndex + 1;
+  if (!seq) {
+    n = 0;
+    for (var i = 0; i < pool.length; i++) if (seenIds[pool[i].id]) n++;
+  }
+  document.getElementById('sIdx').textContent   = n;
+  document.getElementById('sTotal').textContent = pool.length;
+  document.getElementById('sStar').textContent  = starred.length;
+  document.getElementById('sRev').textContent   = reviewList.length;
+  var count = document.querySelector('.session-count');
+  if (count) count.title = seq ? 'Current question / questions in set' : 'Questions seen this session / questions in set';
+
+  var pct = seq ? (pool.length > 1 ? (currentIndex / (pool.length - 1)) * 100 : 100)
+                : (pool.length ? (n / pool.length) * 100 : 0);
+  var fill = document.getElementById('progressFill');
+  fill.style.width = pct + '%';
+  fill.classList.remove('is-zero');
 }
 
 function render() {
   if (!current) return;
+  seenIds[current.id] = true;
 
-  // stats
-  document.getElementById('sIdx').textContent   = currentIndex + 1;
-  document.getElementById('sTotal').textContent = pool.length;
-  document.getElementById('sStar').textContent  = starred.length;
-  document.getElementById('sRev').textContent   = reviewList.length;
-
-  // progress bar
-  var pct = pool.length > 1 ? (currentIndex / (pool.length - 1)) * 100 : 100;
-  document.getElementById('progressFill').style.width = pct + '%';
-  document.getElementById('progressFill').classList.remove('is-zero');
+  // stats + progress bar
+  renderStats();
   updateAnswered();
 
   // badges
@@ -275,14 +400,27 @@ function showEmpty() {
   document.getElementById('progressFill').classList.add('is-zero');
 
   var msg = '\u6ca1\u6709\u5339\u914d\u7684\u9898\u76ee\uff0c\u8bd5\u8bd5\u6362\u4e2a\u7b5b\u9009\u6761\u4ef6~';
-  if (activeTab === 'review' && reviewSubFilter === 'review')
+  // "nothing in this set yet" only when the set really is empty (not when the drill's filters hide it)
+  if (activeTab === 'review' && reviewSubFilter === 'review' && reviewList.length === 0)
     msg = '\u8fd8\u6ca1\u6709\u5f85\u590d\u4e60\u7684\u9898\u76ee\uff0c\u53bb Practice \u6807\u8bb0\u5427';
-  if (activeTab === 'review' && reviewSubFilter === 'starred')
+  if (activeTab === 'review' && reviewSubFilter === 'starred' && starred.length === 0)
     msg = '\u8fd8\u6ca1\u6709\u6536\u85cf\u7684\u9898\u76ee\uff0c\u53bb Practice \u6dfb\u52a0\u5427';
+  if (loadFailed) msg = LOAD_FAILED_MSG;
   document.getElementById('emptyState').querySelector('p').textContent = msg;
+  document.getElementById('emptyRetry').hidden = !loadFailed;
+}
+
+var LOAD_FAILED_MSG = '\u9898\u5e93\u52a0\u8f7d\u5931\u8d25\uff0c\u8bf7\u5237\u65b0\u91cd\u8bd5';
+function loadFailedHTML() {
+  return '<div class="view-empty"><div class="view-empty-icon">' + ic('alert') + '</div>' +
+    '<div class="view-empty-text">' + LOAD_FAILED_MSG + '</div>' +
+    '<button class="empty-retry" type="button" onclick="location.reload()">Retry \u00b7 \u91cd\u8bd5</button></div>';
 }
 
 function showAnswer() {
+  var a = document.activeElement;
+  var f = focusIn(document.getElementById('qPanel'));
+  var fromReveal = f && (a.id === 'showBtn' || a.classList.contains('answer-placeholder'));
   document.getElementById('answerSection').classList.add('visible');
   setShowBtn(true);
   if (current && answered.indexOf(current.id) === -1) {
@@ -290,6 +428,8 @@ function showAnswer() {
     lsSet('ib_answered', answered);
   }
   updateAnswered();
+  // the reveal control just disabled/hid itself: continue from the answer instead of <body>
+  if (fromReveal) moveFocus(document.getElementById('answerSection'), f.pointer);
 }
 
 function nextQuestion() {
@@ -315,12 +455,16 @@ function setMode(mode) {
   pill.textContent = mode === 'sequential' ? 'Sequential' : 'Shuffle';
   pill.className   = 'mode-pill' + (mode === 'sequential' ? ' seq' : '');
   if (pool.length === 0) return;
-  if (mode === 'sequential') {
-    var idx = pool.indexOf(current);
-    currentIndex = idx !== -1 ? idx : 0;
-    current = pool[currentIndex];
+  var idx = pool.indexOf(current);
+  if (idx === -1) {
+    currentIndex = 0;
+    current = pool[0];
     render();
+    return;
   }
+  // same question: keep the revealed answer / open notes / AI, only the order (and the counter) change
+  currentIndex = idx;
+  renderStats();
 }
 
 function toggleStar() {
@@ -391,15 +535,26 @@ function loadNote() {
   document.getElementById('notesInput').value = saved;
   document.getElementById('notesHint').textContent =
     saved ? '\u5df2\u6709\u7b14\u8bb0 \u00b7 \u70b9\u51fb\u67e5\u770b' : '\u70b9\u51fb\u8bb0\u5f55\u7b14\u8bb0';
+  setNoteSaveState(true);
+}
+
+var NOTES_FOOT_TEXT = document.getElementById('notesFoot').textContent;
+function setNoteSaveState(ok) {
+  var foot = document.getElementById('notesFoot');
+  foot.textContent = ok ? NOTES_FOOT_TEXT
+    : '\u672a\u80fd\u4fdd\u5b58\uff1a\u6d4f\u89c8\u5668\u5b58\u50a8\u4e0d\u53ef\u7528\uff0c\u79bb\u5f00\u672c\u9898\u540e\u7b14\u8bb0\u4f1a\u4e22\u5931 \u00b7 Not saved';
+  foot.classList.toggle('is-error', !ok);
 }
 
 function saveNote() {
   if (!current) return;
   var key = 'ib_note_' + current.id;
   var val = document.getElementById('notesInput').value;
-  try { localStorage.setItem(key, val); } catch(e) {}
-  document.getElementById('notesHint').textContent =
-    val ? '\u5df2\u6709\u7b14\u8bb0 \u00b7 \u70b9\u51fb\u67e5\u770b' : '\u70b9\u51fb\u8bb0\u5f55\u7b14\u8bb0';
+  var ok = true;
+  try { localStorage.setItem(key, val); } catch(e) { ok = false; }
+  document.getElementById('notesHint').textContent = !ok ? '\u672a\u80fd\u4fdd\u5b58'
+    : val ? '\u5df2\u6709\u7b14\u8bb0 \u00b7 \u70b9\u51fb\u67e5\u770b' : '\u70b9\u51fb\u8bb0\u5f55\u7b14\u8bb0';
+  setNoteSaveState(ok);
 }
 
 // ── Ask AI ────────────────────────────────────────────────────────────────
@@ -423,6 +578,9 @@ function toggleAiPanel() {
     return;
   }
   if (!current) return;
+  // remember what opened the panel (and how) so closing it can hand focus back
+  aiOpener = document.activeElement;
+  aiOpenerByPointer = aiOpener === pointerFocus;
   panel.classList.add('open');
   fab.classList.add('hidden');
   fab.setAttribute('aria-expanded', 'true');
@@ -437,19 +595,33 @@ function toggleAiPanel() {
 
   document.getElementById('aiResponse').innerHTML = '';
   document.getElementById('aiInput').value = '';
-  setTimeout(function() { document.getElementById('aiInput').focus(); }, 150);
+  setTimeout(function() {
+    if (panel.classList.contains('open')) document.getElementById('aiInput').focus();
+  }, 150);
 }
 
 function openAiPanel() { toggleAiPanel(); }
+
+var aiOpener = null, aiOpenerByPointer = false;
 
 function closeAiPanel() {
   aiRequestId++;
   stopTypewriter();
   var panel = document.getElementById('aiPanel');
   var fab = document.getElementById('aiFab');
+  var f = focusIn(panel);
   if (panel) panel.classList.remove('open');
   if (fab) { fab.classList.remove('hidden'); fab.setAttribute('aria-expanded', 'false'); }
   setAiOpenState(false);
+  // focus was in the panel: return it to whatever opened it (Ask AI, or nothing when opened with "A")
+  if (f) {
+    var back = aiOpener;
+    if (back && back !== document.body && document.contains(back) && back.offsetParent !== null) {
+      moveFocus(back, aiOpenerByPointer);
+    } else if (document.activeElement && document.activeElement.blur) {
+      document.activeElement.blur();
+    }
+  }
 }
 
 var aiRequestId = 0;
@@ -472,7 +644,8 @@ function submitAiQuestion(q) {
   var resp = document.getElementById('aiResponse');
   resp.innerHTML = '<div class="ai-thinking">' +
     '<span class="ai-dot"></span><span class="ai-dot"></span><span class="ai-dot"></span>' +
-    '</div>';
+    '<span class="sr-only">AI 正在思考…</span></div>';
+  announce('AI 正在思考…');
 
   var payload = {
     category:       current.category,
@@ -513,11 +686,13 @@ function renderAiReply(text, meta) {
     metaEl.textContent = meta;
     resp.appendChild(metaEl);
   }
+  announce(text);   // the whole reply once; the typewriter itself is not a live region
   typewriter(text, msgEl, resp);
 }
 
 function typewriter(text, el, scrollEl) {
   stopTypewriter();
+  if (REDUCE_MOTION) { el.textContent = text; return; }
   // Cap total animation at ~3s so long replies don't take half a minute
   var step = Math.max(1, Math.ceil(text.length / 160));
   var i = 0;
@@ -536,8 +711,7 @@ function hideDrillUI() {
   for (var i = 0; i < ids.length; i++) document.getElementById(ids[i]).style.display = 'none';
   document.querySelector('.card-notes').style.display = 'none';
   document.getElementById('answerSection').classList.remove('visible');
-  document.getElementById('aiPanel').classList.remove('open');
-  setAiOpenState(false);
+  closeAiPanel();
   toggleFilters(false);
   document.querySelector('.toolbar').style.display = 'none';
 }
@@ -560,7 +734,10 @@ function setActiveTab(tab) {
 }
 
 function switchTab(tab) {
+  clearTimeout(searchTimer);        // a pending search must not re-render Practice over the new view
+  restorePracticeFilters();         // leaving a review drill
   activeTab = tab;
+  reviewMode = 'dashboard';
 
   // update tab button active states
   setActiveTab(tab);
@@ -568,9 +745,6 @@ function switchTab(tab) {
   hideDrillUI();
   hideAllViews();
   closeAiPanel();
-
-  var fab = document.getElementById('aiFab');
-  fab.style.display = (tab === 'practice' || tab === 'review') ? '' : 'none';
 
   if (tab === 'practice') {
     document.querySelector('.toolbar').style.display = '';
@@ -607,7 +781,7 @@ function renderReviewDashboard() {
 
   // set picker (each set card carries its own count)
   html += '<h2 class="view-section-title">选择题集</h2>';
-  html += '<div class="review-sub-pills" role="radiogroup" aria-label="题集">';
+  html += '<div class="review-sub-pills" role="group" aria-label="题集">';
   html += reviewPill('review', 'bookmark', '待复习', 'Marked “Review later”', revCount);
   html += reviewPill('starred', 'star', '收藏题', 'Starred questions', starCount);
   html += '</div>';
@@ -646,7 +820,7 @@ function renderReviewDashboard() {
 
 function reviewPill(key, icon, title, sub, count) {
   var on = reviewSubFilter === key;
-  return '<button class="review-pill' + (on ? ' active' : '') + '" role="radio" aria-checked="' + on + '" onclick="setReviewSubFilter(\'' + key + '\')">' +
+  return '<button class="review-pill' + (on ? ' active' : '') + '" aria-pressed="' + on + '" data-set="' + key + '" onclick="setReviewSubFilter(\'' + key + '\')">' +
     '<span class="review-pill-top"><span class="review-pill-icon">' + ic(icon) + '</span>' +
     '<span class="review-pill-radio">' + ic('check') + '</span></span>' +
     '<span class="review-pill-num">' + count + '<small>题</small></span>' +
@@ -655,13 +829,18 @@ function reviewPill(key, icon, title, sub, count) {
     '</button>';
 }
 
-function setReviewSubFilter(f) {
-  reviewSubFilter = f;
+function setReviewSubFilter(key) {
+  var f = focusIn(document.getElementById('reviewDashboard'));
+  reviewSubFilter = key;
   renderReviewDashboard();
+  if (f) moveFocus(document.querySelector('.review-pill.active'), f.pointer);   // the re-render replaced it
 }
 
 function startReviewDrill() {
+  var f = focusIn(document.getElementById('reviewDashboard'));
+  clearTimeout(searchTimer);
   reviewMode = 'drilling';
+  stashPracticeFilters();           // the drill covers the whole set; Practice's filters come back afterwards
   document.getElementById('reviewDashboard').style.display = 'none';
 
   // show drill UI with back button
@@ -682,16 +861,25 @@ function startReviewDrill() {
   backBtn.style.display = '';
 
   applyFilter();
+  window.scrollTo(0, 0);
+  if (f) moveFocus(backBtn, f.pointer);
 }
 
 function backToReviewDashboard() {
+  var f = focusIn(document.querySelector('.main'));
+  clearTimeout(searchTimer);
   reviewMode = 'dashboard';
+  restorePracticeFilters();
   hideDrillUI();
   var backBtn = document.getElementById('reviewBackBtn');
   if (backBtn) backBtn.style.display = 'none';
   document.getElementById('reviewDashboard').style.display = '';
   renderReviewDashboard();
   window.scrollTo(0, 0);
+  if (f) {
+    var start = document.querySelector('.review-start-btn');
+    moveFocus(start && !start.disabled ? start : document.querySelector('.review-pill.active'), f.pointer);
+  }
 }
 
 // ── Notes List ───────────────────────────────────────────────────────────────
@@ -712,7 +900,9 @@ function renderNotesList() {
   html += '<p class="view-sub notes-list-count">共 ' + items.length + ' 条 · 点击任意一条回到题目</p>';
   html += '</header>';
 
-  if (items.length === 0) {
+  if (loadFailed) {
+    html += loadFailedHTML();
+  } else if (items.length === 0) {
     html += '<div class="view-empty notes-list-empty">';
     html += '<div class="view-empty-icon">' + ic('pen') + '</div>';
     html += '<div class="view-empty-text">还没有笔记<br>在 Practice 中记录你的思考吧</div>';
@@ -727,7 +917,7 @@ function renderNotesList() {
       html += '<span class="badge ' + diffClassOf(item.q.difficulty) + '">' + esc(item.q.difficulty) + '</span>';
       html += '<span class="notes-item-go">打开' + ic('arrow-right') + '</span>';
       html += '</span>';
-      html += '<span class="notes-item-q">' + esc(item.q.question) + '</span>';
+      html += '<span class="notes-item-q" lang="en">' + esc(item.q.question) + '</span>';
       html += '<span class="notes-item-preview">' + esc(item.note.substring(0, 160)) + (item.note.length > 160 ? '…' : '') + '</span>';
       html += '</button>';
     }
@@ -743,31 +933,36 @@ function goToQuestion(id) {
     if (QUESTIONS[i].id === id) { q = QUESTIONS[i]; break; }
   }
   if (!q) return;
+  var f = focusIn(document.querySelector('.main'));   // the Notes / Progress item that was activated
 
   // switch to practice tab
+  clearTimeout(searchTimer);
+  restorePracticeFilters();
   activeTab = 'practice';
+  reviewMode = 'dashboard';
   setActiveTab('practice');
 
   hideAllViews();
+  document.querySelector('.toolbar').style.display = '';
+  document.getElementById('fSpecial').style.display = '';
 
-  // set current question and render
-  current = q;
-  currentIndex = pool.indexOf(q);
-  if (currentIndex === -1) {
-    // question might not be in current pool, reset pool to all
+  // open it inside Practice's own set (its filters + search) so Next carries on from there —
+  // never inside whatever pool the last view built; if those filters hide it, fall back to everything
+  pool = buildPool();
+  if (pool.indexOf(q) === -1) {
     document.getElementById('fCat').value = 'all';
     document.getElementById('fDiff').value = 'all';
     document.getElementById('fSpecial').value = 'all';
     document.getElementById('searchInput').value = '';
-    pool = QUESTIONS.slice();
-    currentIndex = pool.indexOf(q);
+    pool = buildPool();
   }
+  current = q;
+  currentIndex = pool.indexOf(q);
 
-  document.querySelector('.toolbar').style.display = '';
-  document.getElementById('fSpecial').style.display = '';
-  updateFilterBadge();
+  syncFilterUI();
   render();
   window.scrollTo(0, 0);
+  if (f) moveFocus(document.getElementById('qText'), f.pointer);
 }
 
 // ── Progress View ────────────────────────────────────────────────────────────
@@ -803,6 +998,11 @@ function renderProgress() {
   html += '<h1 class="view-title">学习进度</h1>';
   html += '<p class="view-sub">每看一次答案就算完成一题。</p>';
   html += '</header>';
+
+  if (loadFailed) {
+    document.getElementById('progressView').innerHTML = html + loadFailedHTML();
+    return;
+  }
 
   // completion ring
   html += '<section class="progress-hero">';
@@ -864,21 +1064,20 @@ function renderProgress() {
 var expandedCat = null;
 
 function toggleCatDetail(cat) {
+  var f = focusIn(document.getElementById('progressView'));
   if (expandedCat === cat) {
     expandedCat = null;
   } else {
     expandedCat = cat;
   }
   renderProgress();
-  // scroll the expanded section into view
-  if (expandedCat) {
-    var idx = CATEGORIES.indexOf(expandedCat);
-    var el = document.getElementById('catDetail_' + idx);
-    if (el) {
-      setTimeout(function() {
-        el.previousElementSibling.scrollIntoView({ behavior: 'smooth', block: 'start' });
-      }, 50);
-    }
+  var row = document.querySelector('[aria-controls="catDetail_' + CATEGORIES.indexOf(cat) + '"]');
+  if (f) moveFocus(row, f.pointer);   // the re-render replaced the row that had focus
+  // scroll the expanded section into view (html scroll-padding keeps it clear of the sticky top bar)
+  if (expandedCat && row) {
+    setTimeout(function() {
+      row.scrollIntoView({ behavior: REDUCE_MOTION ? 'auto' : 'smooth', block: 'start' });
+    }, 50);
   }
 }
 
@@ -894,7 +1093,7 @@ function buildCatDetailHTML(cat) {
     html += '<button class="cat-detail-item" onclick="goToQuestion(\'' + q.id + '\')">';
     html += '<span class="cat-detail-status' + (isDone ? ' done' : '') + '" title="' + (isDone ? '已完成' : '未完成') + '">' + ic(isDone ? 'check-circle' : 'circle') + '<span class="sr-only">' + (isDone ? '已完成' : '未完成') + '</span></span>';
     html += '<span class="badge ' + diffClassOf(q.difficulty) + ' cat-detail-diff">' + esc(q.difficulty) + '</span>';
-    html += '<span class="cat-detail-q">' + esc(q.question) + '</span>';
+    html += '<span class="cat-detail-q" lang="en">' + esc(q.question) + '</span>';
     html += '</button>';
   }
   return html;
@@ -907,19 +1106,28 @@ function buildCatDetailHTML(cat) {
 
 document.addEventListener('keydown', function(e) {
   if (e.metaKey || e.ctrlKey || e.altKey) return;
+  // nothing to drive until the app is on screen (the welcome screen covers a live, hidden question)
+  if (!document.getElementById('appWrap').classList.contains('visible')) return;
   var t = e.target;
   if (e.key === 'Escape') {
-    if (t && t.blur) t.blur();
-    closeAiPanel();
-    toggleFilters(false);
+    var field = t && (t.tagName === 'INPUT' || t.tagName === 'TEXTAREA' || t.tagName === 'SELECT');
+    closeAiPanel();          // hands focus back to what opened it
+    toggleFilters(false);    // hands focus back to the Filter button
+    if (field && document.activeElement === t) t.blur();
     return;
   }
   if (t && (t.tagName === 'INPUT' || t.tagName === 'TEXTAREA' || t.tagName === 'SELECT')) return;
-  var drilling = activeTab === 'practice' || (activeTab === 'review' && reviewMode === 'drilling');
-  if (!drilling || !current || document.getElementById('qPanel').style.display === 'none') return;
+  if (!inDrillView() || !current || document.getElementById('qPanel').style.display === 'none') return;
   var k = e.key.toLowerCase();
   if (k === 'arrowright' || k === 'n') { nextQuestion(); }
-  else if (k === ' ') { if (!document.getElementById('showBtn').disabled) showAnswer(); }
+  else if (k === ' ') {
+    // Space on a control reached with the keyboard activates that control (native behaviour);
+    // after a mouse click it stays the reveal shortcut
+    var ctl = t && t.closest ? t.closest('button, a[href], summary, [role="button"]') : null;
+    if (ctl && ctl !== pointerFocus) return;
+    if (!document.getElementById('showBtn').disabled) showAnswer();
+    else if (!ctl) return;   // nothing left to reveal: let Space scroll the page
+  }
   else if (k === 's') { toggleStar(); }
   else if (k === 'r') { toggleReview(); }
   else if (k === 'a') { toggleAiPanel(); }
@@ -935,16 +1143,18 @@ fetch('questions.json')
     return r.json();
   })
   .then(function(data) {
+    if (!Array.isArray(data)) throw new Error('questions.json is not a list');
     for (var i = 0; i < data.length; i++) {
       var it = data[i];
       it._hay = (it.question + ' ' + it.answer_en + ' ' + it.answer_zh + ' ' + it.explanation_zh).toLowerCase();
     }
     QUESTIONS = data;
+  })
+  // only a failed load is reported as one; a bug while rendering surfaces as a normal error
+  .then(function() {
     buildTopicOptions();
     applyFilter();
-  })
-  .catch(function() {
+  }, function() {
+    loadFailed = true;
     showEmpty();
-    document.getElementById('emptyState').querySelector('p').textContent =
-      '\u9898\u5e93\u52a0\u8f7d\u5931\u8d25\uff0c\u8bf7\u5237\u65b0\u91cd\u8bd5';
   });

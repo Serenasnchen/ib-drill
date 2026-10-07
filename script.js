@@ -33,10 +33,7 @@ function applyFilter() {
     if (f.diff !== 'all' && item.difficulty !== f.diff) return false;
     if (f.special === 'starred' && starred.indexOf(item.id) === -1) return false;
     if (f.special === 'review'  && reviewList.indexOf(item.id) === -1) return false;
-    if (q) {
-      var hay = (item.question + ' ' + item.answer_en + ' ' + item.answer_zh + ' ' + item.explanation_zh).toLowerCase();
-      if (hay.indexOf(q) === -1) return false;
-    }
+    if (q && item._hay.indexOf(q) === -1) return false;
     return true;
   });
 
@@ -53,10 +50,24 @@ function applyFilter() {
   if (studyMode === 'sequential') {
     currentIndex = 0;
   } else {
-    currentIndex = Math.floor(Math.random() * pool.length);
+    currentIndex = randomIndex();
   }
   current = pool[currentIndex];
   render();
+}
+
+// Random index that avoids repeating the question currently on screen
+function randomIndex() {
+  if (pool.length < 2) return 0;
+  var i;
+  do { i = Math.floor(Math.random() * pool.length); } while (pool[i] === current);
+  return i;
+}
+
+var searchTimer = null;
+function onSearchInput() {
+  clearTimeout(searchTimer);
+  searchTimer = setTimeout(applyFilter, 150);
 }
 
 function render() {
@@ -116,7 +127,6 @@ function render() {
   // show/hide
   document.getElementById('qPanel').style.display    = '';
   document.getElementById('actionBar').style.display = '';
-  document.getElementById('aiTriggerRow').style.display = '';
   document.querySelector('.card-notes').style.display = '';
   document.getElementById('emptyState').style.display = 'none';
   document.getElementById('footerHint').style.display = '';
@@ -157,7 +167,6 @@ function showEmpty() {
   document.getElementById('qPanel').style.display    = 'none';
   document.getElementById('answerSection').classList.remove('visible');
   document.getElementById('actionBar').style.display = 'none';
-  document.getElementById('aiTriggerRow').style.display = 'none';
   document.querySelector('.card-notes').style.display = 'none';
   document.getElementById('emptyState').style.display = '';
   document.getElementById('footerHint').style.display = 'none';
@@ -190,7 +199,7 @@ function nextQuestion() {
   if (studyMode === 'sequential') {
     currentIndex = (currentIndex + 1) % pool.length;
   } else {
-    currentIndex = Math.floor(Math.random() * pool.length);
+    currentIndex = randomIndex();
   }
   current = pool[currentIndex];
   render();
@@ -328,18 +337,30 @@ function toggleAiPanel() {
 function openAiPanel() { toggleAiPanel(); }
 
 function closeAiPanel() {
+  aiRequestId++;
+  stopTypewriter();
   var panel = document.getElementById('aiPanel');
   var fab = document.getElementById('aiFab');
   if (panel) panel.classList.remove('open');
   if (fab) fab.classList.remove('hidden');
 }
 
+var aiRequestId = 0;
+var typeTimer = null;
+
+function stopTypewriter() {
+  if (typeTimer) { clearInterval(typeTimer); typeTimer = null; }
+}
+
 function submitAiQuestion(q) {
+  if (!current) return;
   var input = document.getElementById('aiInput');
   var question = (q || input.value).trim();
   if (!question) return;
   input.value = '';
 
+  stopTypewriter();
+  var reqId = ++aiRequestId;
   var revealed = document.getElementById('answerSection').classList.contains('visible');
   var resp = document.getElementById('aiResponse');
   resp.innerHTML = '<div class="ai-thinking">' +
@@ -363,10 +384,12 @@ function submitAiQuestion(q) {
   })
   .then(function(r) { return r.json(); })
   .then(function(data) {
+    if (reqId !== aiRequestId) return; // question changed or newer request sent
     var text = data.answer || data.error || '暂无回复，请重试。';
     renderAiReply(text, data.answer ? '— Powered by Gemini' : '');
   })
   .catch(function() {
+    if (reqId !== aiRequestId) return;
     renderAiReply('网络错误，暂时无法连接 AI，请稍后重试。', '');
   });
 }
@@ -386,62 +409,23 @@ function renderAiReply(text, meta) {
   typewriter(text, msgEl, resp);
 }
 
-function buildAiResponse(question) {
-  if (!current) return '暂无题目数据。';
-
-  var revealed = document.getElementById('answerSection').classList.contains('visible');
-
-  var exp = current.explanation_zh || '';
-  var re = /【([^】]+)】([^【]*)/g;
-  var m, segs = {};
-  while ((m = re.exec(exp)) !== null) { segs[m[1]] = m[2].trim(); }
-
-  var what  = segs['这题在考什么']  || '';
-  var logic = segs['正确回答逻辑'] || '';
-  var traps = segs['容易错在哪里'] || '';
-
-  var q = question.toLowerCase();
-  var header, body;
-
-  if (q.indexOf('错') !== -1 || q.indexOf('陷阱') !== -1 || q.indexOf('mistake') !== -1 || q.indexOf('wrong') !== -1) {
-    header = '⚠️  容易错在哪里';
-    body   = traps || '这道题没有特别记录的易错点。';
-  } else if (q.indexOf('为什么') !== -1 || q.indexOf('why') !== -1 || q.indexOf('逻辑') !== -1 || q.indexOf('如何') !== -1 || q.indexOf('怎么') !== -1) {
-    header = '📝  回答逻辑';
-    body   = logic || '暂无具体逻辑分析。';
-  } else if (q.indexOf('考') !== -1 || q.indexOf('考察') !== -1 || q.indexOf('test') !== -1) {
-    header = '📋  这题在考什么';
-    body   = what || '暂无具体分析。';
-  } else {
-    header = '✨  AI 解析';
-    var parts = [];
-    if (what)  parts.push('📋 考察点\n' + what);
-    if (logic) parts.push('📝 回答逻辑\n' + logic);
-    if (traps) parts.push('⚠️  易错点\n' + traps);
-    body = parts.length ? parts.join('\n\n') : '暂无解析数据。';
-  }
-
-  var suffix = revealed
-    ? ''
-    : '\n\n💡 先自己思考，再点 Reveal Answer 对照标准答案！';
-
-  return header + '\n\n' + body + suffix;
-}
-
 function typewriter(text, el, scrollEl) {
+  stopTypewriter();
+  // Cap total animation at ~3s so long replies don't take half a minute
+  var step = Math.max(1, Math.ceil(text.length / 160));
   var i = 0;
-  var iv = setInterval(function() {
-    if (i >= text.length) { clearInterval(iv); return; }
-    el.textContent += text[i];
-    i++;
+  typeTimer = setInterval(function() {
+    i = Math.min(text.length, i + step);
+    el.textContent = text.slice(0, i);
     if (scrollEl) scrollEl.scrollTop = scrollEl.scrollHeight;
+    if (i >= text.length) stopTypewriter();
   }, 18);
 }
 
 // ── Tab Navigation ───────────────────────────────────────────────────────────
 
 function hideDrillUI() {
-  var ids = ['qPanel', 'actionBar', 'aiTriggerRow', 'footerHint', 'emptyState'];
+  var ids = ['qPanel', 'actionBar', 'footerHint', 'emptyState'];
   for (var i = 0; i < ids.length; i++) document.getElementById(ids[i]).style.display = 'none';
   document.querySelector('.card-notes').style.display = 'none';
   document.getElementById('answerSection').classList.remove('visible');
@@ -779,9 +763,45 @@ function buildCatDetailHTML(cat) {
 
 // ─────────────────────────────────────────────────────────────────────────────
 
+// ── Keyboard shortcuts ───────────────────────────────────────────────────────
+// → / N: next · Space: reveal · S: star · R: review later · Esc: close AI panel
+
+document.addEventListener('keydown', function(e) {
+  if (e.metaKey || e.ctrlKey || e.altKey) return;
+  var t = e.target;
+  if (t && (t.tagName === 'INPUT' || t.tagName === 'TEXTAREA' || t.tagName === 'SELECT')) {
+    if (e.key === 'Escape') t.blur();
+    return;
+  }
+  if (e.key === 'Escape') { closeAiPanel(); return; }
+  var drilling = activeTab === 'practice' || (activeTab === 'review' && reviewMode === 'drilling');
+  if (!drilling || !current || document.getElementById('qPanel').style.display === 'none') return;
+  var k = e.key.toLowerCase();
+  if (k === 'arrowright' || k === 'n') { nextQuestion(); }
+  else if (k === ' ') { if (!document.getElementById('showBtn').disabled) showAnswer(); }
+  else if (k === 's') { toggleStar(); }
+  else if (k === 'r') { toggleReview(); }
+  else return;
+  e.preventDefault();
+});
+
+// ─────────────────────────────────────────────────────────────────────────────
+
 fetch('questions.json')
-  .then(function(r) { return r.json(); })
+  .then(function(r) {
+    if (!r.ok) throw new Error('HTTP ' + r.status);
+    return r.json();
+  })
   .then(function(data) {
+    for (var i = 0; i < data.length; i++) {
+      var it = data[i];
+      it._hay = (it.question + ' ' + it.answer_en + ' ' + it.answer_zh + ' ' + it.explanation_zh).toLowerCase();
+    }
     QUESTIONS = data;
     applyFilter();
+  })
+  .catch(function() {
+    showEmpty();
+    document.getElementById('emptyState').querySelector('p').textContent =
+      '\u9898\u5e93\u52a0\u8f7d\u5931\u8d25\uff0c\u8bf7\u5237\u65b0\u91cd\u8bd5';
   });

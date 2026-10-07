@@ -16,9 +16,6 @@ module.exports = async function handler(req, res) {
     return res.status(500).json({ error: 'API key 未配置，请联系管理员。' });
   }
 
-  // Log key presence for debugging (never log the full key)
-  console.log('[ask] key set:', !!apiKey, '| prefix:', apiKey.slice(0, 4) + '...');
-
   // Defensive body parsing — Vercel usually auto-parses, but handle string bodies too
   let body = req.body;
   if (typeof body === 'string') {
@@ -26,18 +23,17 @@ module.exports = async function handler(req, res) {
   }
   body = body || {};
 
-  const {
-    category,
-    question,
-    answer_en,
-    answer_zh,
-    explanation_zh,
-    userQuestion,
-    revealed
-  } = body;
+  // Cap field lengths so the endpoint can't be used to send arbitrarily large prompts
+  const str = (v, max) => (typeof v === 'string' ? v.slice(0, max) : '');
+  const category       = str(body.category, 50);
+  const question       = str(body.question, 1000);
+  const answer_en      = str(body.answer_en, 6000);
+  const answer_zh      = str(body.answer_zh, 6000);
+  const explanation_zh = str(body.explanation_zh, 6000);
+  const userQuestion   = str(body.userQuestion, 500).trim();
+  const revealed       = body.revealed === true;
 
   if (!userQuestion || !question) {
-    console.error('[ask] missing fields — userQuestion:', userQuestion, '| question:', question);
     return res.status(400).json({ error: '请求参数不完整。' });
   }
 
@@ -73,17 +69,23 @@ ${revealed
   : '从原理和逻辑角度解释，不要直接说出完整答案，给引导性分析。'
 }`;
 
+  const controller = new AbortController();
+  const timeout = setTimeout(() => controller.abort(), 13000); // under Vercel maxDuration (15s)
+
   try {
     const geminiRes = await fetch(
-      `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${apiKey}`,
+      'https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent',
       {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        signal: controller.signal,
+        headers: { 'Content-Type': 'application/json', 'x-goog-api-key': apiKey },
         body: JSON.stringify({
           contents: [{ parts: [{ text: prompt }] }],
           generationConfig: {
             temperature: 0.4,
-            maxOutputTokens: 2048
+            maxOutputTokens: 2048,
+            // Short tutoring answers don't need extended thinking; cuts latency a lot
+            thinkingConfig: { thinkingBudget: 0 }
           }
         })
       }
@@ -105,7 +107,12 @@ ${revealed
 
     return res.status(200).json({ answer: cleanText(text) });
   } catch (err) {
+    if (err.name === 'AbortError') {
+      return res.status(504).json({ error: 'AI 响应超时，请重试。' });
+    }
     console.error('[ask] fetch error:', err.message);
     return res.status(500).json({ error: `请求失败: ${err.message}` });
+  } finally {
+    clearTimeout(timeout);
   }
 };

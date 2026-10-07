@@ -769,11 +769,12 @@ function buildCatDetailHTML(cat) {
 document.addEventListener('keydown', function(e) {
   if (e.metaKey || e.ctrlKey || e.altKey) return;
   var t = e.target;
-  if (t && (t.tagName === 'INPUT' || t.tagName === 'TEXTAREA' || t.tagName === 'SELECT')) {
-    if (e.key === 'Escape') t.blur();
+  if (e.key === 'Escape') {
+    if (t && t.blur) t.blur();
+    closeAiPanel();
     return;
   }
-  if (e.key === 'Escape') { closeAiPanel(); return; }
+  if (t && (t.tagName === 'INPUT' || t.tagName === 'TEXTAREA' || t.tagName === 'SELECT')) return;
   var drilling = activeTab === 'practice' || (activeTab === 'review' && reviewMode === 'drilling');
   if (!drilling || !current || document.getElementById('qPanel').style.display === 'none') return;
   var k = e.key.toLowerCase();
